@@ -1,0 +1,17 @@
+@import "tailwindcss";
+
+@theme {
+  /* กำหนดสี PhishWise */
+  --color-primary: #0F172A;   /* Deep Royal Blue */
+  --color-secondary: #1E40AF; /* Hover Blue */
+  --color-accent: #7C3AED;    /* Electric Purple */
+  --color-success: #10B981;   /* Emerald Green */
+  --color-danger: #EF4444;    /* Neon Red */
+  --color-warning: #F59E0B;   /* Amber */
+  --color-background: #F8FAFC;/* Slate White */
+  --color-surface: #FFFFFF;   /* White Card */
+
+  /* กำหนดฟอนต์ */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, SFMono-Regular, monospace;
+}
