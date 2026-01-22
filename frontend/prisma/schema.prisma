@@ -1,0 +1,27 @@
+// ไฟล์: prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String?
+  role      String   @default("MEMBER")
+  createdAt DateTime @default(now())
+}
+
+model AnalysisReport {
+  id        String   @id @default(uuid())
+  url       String
+  score     Int
+  status    String
+  createdAt DateTime @default(now())
+}

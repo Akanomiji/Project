@@ -1,98 +1,118 @@
 'use client';
 import { useState } from 'react';
-import Link from 'next/link';
-import { ShieldCheck, Link as LinkIcon } from 'lucide-react';
+import Link from 'next/link'; 
+import { ShieldCheck, Globe, QrCode, Search, CheckCircle, ArrowRight } from 'lucide-react';
+
+// ❌ ไม่ต้อง import Navbar แล้ว เพราะ Layout จัดการให้
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState('url'); // 'url' หรือ 'qr'
+  const [activeTab, setActiveTab] = useState('url');
 
   return (
-    <div className="min-h-screen bg-white font-sans text-slate-800 flex flex-col relative overflow-hidden">
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-800 flex flex-col">
       
-      {/* Navbar */}
-      {/* px-4 สำหรับมือถือ, md:px-8 สำหรับจอใหญ่ */}
-      <nav className="w-full flex justify-between items-center px-4 md:px-8 py-4 bg-white z-20">
-        <div className="flex items-center gap-2">
-           {/* Logo */}
-           <div className="w-8 h-8 md:w-10 md:h-10 bg-blue-100 rounded-lg flex items-center justify-center text-blue-600 shrink-0">
-             <ShieldCheck className="w-5 h-5 md:w-6 md:h-6" />
-           </div>
-           <span className="text-lg md:text-xl font-bold text-slate-900">PhishWise</span>
-        </div>
-        
-        {/* Menu (ซ่อนบนมือถือ hidden, แสดงบนจอใหญ่ md:flex) */}
-        <div className="hidden md:flex gap-8 text-sm font-medium text-slate-500">
-          <a href="#" className="text-slate-900 font-bold cursor-pointer">หน้าหลัก</a>
-          <a href="#" className="hover:text-blue-600 transition cursor-pointer">H1</a>
-          <a href="#" className="hover:text-blue-600 transition cursor-pointer">H2</a>
-        </div>
+      {/* ❌ ลบส่วน <nav>...</nav> ออกทั้งหมด เพราะมันซ้ำซ้อน */}
 
-        {/* Login Button */}
-        <button className="px-4 py-2 md:px-6 bg-blue-500 text-white rounded-lg text-sm font-bold hover:bg-blue-600 transition shadow-md shadow-blue-200 whitespace-nowrap">
-          Login
-        </button>
-      </nav>
+      {/* Hero Section */}
+      <main className="flex-grow">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-20">
+            <div className="text-center max-w-3xl mx-auto mb-12">
+                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 text-blue-600 text-xs font-bold mb-4 border border-blue-100">
+                    <ShieldCheck size={14} /> AI-Powered Security
+                </div>
+                <h1 className="text-4xl md:text-6xl font-extrabold text-slate-900 mb-6 tracking-tight leading-tight">
+                    Analyze suspicious <br className="hidden md:block" />
+                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-500">URLs & QR Codes</span>
+                </h1>
+                <p className="text-lg text-slate-500 mb-8 leading-relaxed max-w-2xl mx-auto">
+                    ตรวจสอบลิงก์และสแกน QR Code เพื่อค้นหา Phishing และภัยคุกคามทางไซเบอร์ 
+                    รู้ทันภัยไซเบอร์ได้เพียงวางลิงก์ที่น่าสงสัย
+                </p>
+            </div>
 
-      {/* Main Content */}
-      {/* mt-20 มือถือ, mt-32 จอใหญ่ เพื่อความสมดุล */}
-      <main className="flex-1 flex flex-col items-center justify-start pt-24 md:pt-32 px-4 md:px-0 z-10 w-full max-w-5xl mx-auto">
-        
-        {/* Tab Switcher */}
-        <div className="bg-slate-100 p-1 rounded-xl mb-6 flex w-full max-w-[300px] md:max-w-fit shadow-inner">
-          <button 
-            onClick={() => setActiveTab('url')}
-            className={`flex-1 md:flex-none px-6 py-2 rounded-lg text-sm font-semibold transition text-center ${activeTab === 'url' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-          >
-            URL
-          </button>
-          <button 
-            onClick={() => setActiveTab('qr')}
-            className={`flex-1 md:flex-none px-6 py-2 rounded-lg text-sm font-semibold transition text-center ${activeTab === 'qr' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-          >
-            QR Code
-          </button>
-        </div>
-
-        {/* Input Box Container */}
-        {/* w-full เต็มจอมือถือ, max-w-3xl จำกัดความกว้างจอคอม */}
-        <div className="w-full max-w-3xl relative group">
-            {/* Background Layer (เงาและเส้นขอบ) */}
-            <div className="absolute inset-0 bg-blue-100/50 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition duration-500"></div>
-            
-            <div className="relative flex flex-col md:flex-row items-center gap-2 bg-slate-50 p-2 rounded-2xl border border-slate-200 shadow-sm focus-within:ring-2 focus-within:ring-blue-100 focus-within:border-blue-400 transition-all bg-white">
-                
-                {/* Icon & Input */}
-                <div className="flex-1 flex items-center w-full px-2">
-                    <div className="text-slate-400 mr-3 shrink-0">
-                        <LinkIcon size={20} />
-                    </div>
-                    <input 
-                        type="text" 
-                        placeholder="กรอกลิงก์ URL ที่ต้องการตรวจสอบ..." 
-                        className="flex-1 h-12 bg-transparent focus:outline-none text-slate-700 placeholder-slate-400 text-sm md:text-base w-full min-w-0"
+            {/* Input Card */}
+            <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-xl shadow-slate-200/60 border border-slate-100 overflow-hidden">
+                {/* Tabs */}
+                <div className="flex border-b border-slate-100 bg-slate-50/50">
+                    <TabButton 
+                        id="url" 
+                        icon={<Globe size={18} />} 
+                        label="ตรวจสอบ URL" 
+                        active={activeTab} 
+                        onClick={setActiveTab} 
+                    />
+                    <TabButton 
+                        id="qr" 
+                        icon={<QrCode size={18} />} 
+                        label="สแกน QR Code" 
+                        active={activeTab} 
+                        onClick={setActiveTab} 
                     />
                 </div>
 
-                {/* Scan Button */}
-                {/* มือถือ: เต็มความกว้าง (w-full), จอใหญ่: ความกว้างอัตโนมัติ (md:w-auto) */}
-                <Link href="/result" className="w-full md:w-auto">
-                    <button className="w-full md:w-auto h-12 px-8 bg-blue-500 text-white font-bold rounded-xl shadow-lg shadow-blue-200 hover:bg-blue-600 active:scale-95 transition-all flex items-center justify-center gap-2">
-                        SCAN
-                    </button>
-                </Link>
+                {/* Input Area */}
+                <div className="p-6 md:p-8">
+                    {activeTab === 'url' ? (
+                        <div className="space-y-4">
+                            <div className="relative">
+                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
+                                    <Search size={20} />
+                                </div>
+                                <input 
+                                    type="text" 
+                                    placeholder="วางลิงก์ที่ต้องการตรวจสอบที่นี่ (เช่น https://example.com)" 
+                                    className="w-full pl-11 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-slate-800"
+                                />
+                            </div>
+                            <Link href="/result" className="block">
+                                <button className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-lg shadow-lg shadow-blue-200 transition-all flex items-center justify-center gap-2">
+                                    ตรวจสอบความปลอดภัย <ArrowRight size={20} />
+                                </button>
+                            </Link>
+                        </div>
+                    ) : (
+                        <div className="text-center py-8 space-y-4 border-2 border-dashed border-slate-200 rounded-xl bg-slate-50 hover:bg-slate-100 transition cursor-pointer">
+                            <div className="mx-auto w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-sm text-blue-500">
+                                <QrCode size={32} />
+                            </div>
+                            <div>
+                                <p className="font-bold text-slate-700">อัปโหลดภาพ QR Code</p>
+                                <p className="text-sm text-slate-400">หรือลากไฟล์มาวางที่นี่</p>
+                            </div>
+                        </div>
+                    )}
+                </div>
             </div>
+
+            {/* Features Badge */}
+            <div className="flex flex-wrap justify-center gap-6 mt-12 text-sm font-semibold text-slate-500">
+                <span className="flex items-center gap-2"><CheckCircle className="text-green-500" size={18} /> ไม่มีค่าใช้จ่าย</span>
+                <span className="flex items-center gap-2"><CheckCircle className="text-green-500" size={18} /> รู้ผลทันที</span>
+                <span className="flex items-center gap-2"><CheckCircle className="text-green-500" size={18} /> ปลอดภัย 100%</span>
+            </div>
+
         </div>
-
-        {/* Helper Text (Optional) */}
-        <p className="mt-6 text-slate-400 text-xs md:text-sm text-center px-8">
-            รองรับการตรวจสอบทั้งเว็บไซต์ธนาคาร, อีคอมเมิร์ซ และโซเชียลมีเดีย
-        </p>
-
       </main>
-      
-      {/* Background Decoration */}
-      {/* Gradient สีม่วงจางๆ ด้านล่าง */}
-      <div className="absolute bottom-0 left-0 w-full h-[40vh] bg-gradient-to-t from-purple-50/80 via-white to-transparent -z-10 pointer-events-none"></div>
+
+      {/* Footer Decoration */}
+      <div className="fixed top-0 left-0 w-full h-full -z-10 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-50/80 via-white to-white pointer-events-none"></div>
     </div>
   );
+}
+
+// Components
+function TabButton({ id, icon, label, active, onClick }) {
+    const isActive = active === id;
+    return (
+        <button 
+            onClick={() => onClick(id)}
+            className={`flex-1 py-4 flex flex-row items-center justify-center gap-2 transition-all duration-200 relative text-sm md:text-base
+                ${isActive ? 'text-blue-600 bg-white' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50 bg-slate-50/50'}
+            `}
+        >
+            {icon}
+            <span className={`font-bold ${isActive ? 'text-blue-600' : ''}`}>{label}</span>
+            {isActive && <div className="absolute bottom-0 left-0 w-full h-[3px] bg-blue-600"></div>}
+        </button>
+    );
 }
