@@ -54,7 +54,7 @@ export default function Navbar() {
                   onClick={() => signOut({ callbackUrl: '/' })}
                   className="text-slate-500 hover:text-red-500 transition font-semibold text-sm"
                 >
-                  Log Out
+                  ออกจากระบบ
                 </button>
               </div>
             ) : (

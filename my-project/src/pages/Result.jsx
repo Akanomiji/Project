@@ -1,7 +1,5 @@
-'use client';
 import { useState } from 'react';
-import Link from 'next/link';
-import Navbar from '@/components/Navbar';
+// import Navbar from '../components/Navbar'; // ⚠️ เปิดบรรทัดนี้เมื่อมีไฟล์ Navbar จริง (ตรวจสอบ path ให้ถูกต้อง)
 import { 
   Download, ShieldCheck, Globe, Calendar, CheckCircle2, 
   XCircle, AlertTriangle, BrainCircuit, ArrowLeft, Unlock 
@@ -10,7 +8,7 @@ import {
 export default function ResultPage() {
 
   // =================================================================
-  // 1. DATA: กำหนดข้อความให้เหมือนต้นฉบับที่คุณต้องการ
+  // 1. DATA: ข้อมูลจำลอง (Mock Data)
   // =================================================================
   const SCENARIOS = {
     safe: {
@@ -18,14 +16,12 @@ export default function ResultPage() {
       statusText: "ปลอดภัย",
       url: "https://www.google.com",
       
-      // ข้อมูล SSL (ตามที่คุณวงไว้)
       hasSSL: true,
-      sslTitle: "DigiCert Inc.", // เปลี่ยนจาก Secure เป็นชื่อบริษัทตามต้นฉบับ
-      sslSub: "หมดอายุ: 12 ต.ค. 2026", // ✅ คืนค่าเดิม
+      sslTitle: "DigiCert Inc.",
+      sslSub: "หมดอายุ: 12 ต.ค. 2026",
 
-      // ข้อมูล Domain (ตามที่คุณวงไว้)
       domainAge: "2 ปี 4 เดือน",
-      domainSub: "จดทะเบียน: 12 มิ.ย. 2024", // ✅ คืนค่าเดิม
+      domainSub: "จดทะเบียน: 12 มิ.ย. 2024",
 
       isBlacklisted: false,
       googleSafe: true,
@@ -39,7 +35,7 @@ export default function ResultPage() {
       
       hasSSL: true,
       sslTitle: "Let's Encrypt",
-      sslSub: "หมดอายุ: 12 ธ.ค. 2026", // ปรับคำให้เข้ากับบริบท Risk
+      sslSub: "หมดอายุ: 12 ธ.ค. 2026",
       
       domainAge: "3 เดือน",
       domainSub: "12 พ.ย. 2025",
@@ -56,7 +52,7 @@ export default function ResultPage() {
       
       hasSSL: false,
       sslTitle: "Not Secure",
-      sslSub: "หมดอายุ: 12 ต.ค. 2020", // ปรับคำให้เข้ากับบริบท Danger
+      sslSub: "หมดอายุ: 12 ต.ค. 2020",
       
       domainAge: "2 วัน",
       domainSub: "จดทะเบียน: 29 ม.ค. 2026",
@@ -89,9 +85,11 @@ export default function ResultPage() {
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800 pb-10 overflow-x-hidden relative">
       
+      {/* <Navbar />  <-- เปิดใช้งานถ้ามี Component นี้ */}
+
       <main className="max-w-7xl mx-auto px-4 md:px-6 py-8">
         
-        {/* Header */}
+        {/* Header Section */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-4">
             <div className="w-full md:w-auto">
                 <div className="flex flex-wrap items-center gap-2 mb-2">
@@ -103,6 +101,7 @@ export default function ResultPage() {
                 <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 mb-2">ผลรายงานการวิเคราะห์</h1>
                 <div className="flex items-center gap-2 text-slate-500 text-sm bg-white border border-slate-200 py-2 px-4 rounded-lg w-fit max-w-full shadow-sm">
                     <Globe size={18} className={result.hasSSL ? "text-green-500" : "text-red-500"} />
+                    {/* เปลี่ยน Link เป็น a tag ธรรมดาสำหรับ React/Vite */}
                     <a href="#" className="text-slate-700 hover:text-blue-600 hover:underline truncate font-medium font-mono">
                         {result.url}
                     </a>
@@ -160,7 +159,6 @@ export default function ResultPage() {
                 
                 {/* 3 Small Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {/* SSL Card: ใช้ข้อมูลจาก SCENARIOS */}
                     {result.hasSSL ? (
                         <InfoCard 
                             icon={<ShieldCheck size={24} />} 
@@ -168,8 +166,8 @@ export default function ResultPage() {
                             badge="ใบรับรอง SSL" 
                             badgeColor="bg-green-100 text-green-700 border border-green-200"
                             label="Issuer"
-                            value={result.sslTitle} // DigiCert Inc.
-                            sub={result.sslSub}     // หมดอายุ: 12 ต.ค. 2025
+                            value={result.sslTitle} 
+                            sub={result.sslSub}     
                         />
                     ) : (
                         <InfoCard 
@@ -183,18 +181,16 @@ export default function ResultPage() {
                         />
                     )}
 
-                    {/* Domain Age Card: ใช้ข้อมูลจาก SCENARIOS */}
                     <InfoCard 
                         icon={<Calendar size={24} />} 
                         iconColor="text-purple-600 bg-purple-50"
                         badge="อายุโดเมน"
                         badgeColor={result.domainAge === "2 วัน" || result.domainAge === "3 เดือน" ? "bg-orange-100 text-orange-700 border-orange-200" : "bg-green-100 text-green-700 border-green-200"}
                         label="Created Date"
-                        value={result.domainAge} // 2 ปี 4 เดือน
-                        sub={result.domainSub}   // จดทะเบียน: 2021
+                        value={result.domainAge} 
+                        sub={result.domainSub}   
                     />
 
-                    {/* AI Score */}
                     <div className={`bg-white p-5 rounded-2xl border ${theme.border} shadow-sm flex flex-col justify-center h-full`}>
                         <div className="flex justify-between items-start mb-4">
                             <div className={`p-2.5 rounded-xl ${theme.bg} ${theme.color}`}>
@@ -273,9 +269,7 @@ export default function ResultPage() {
         </div>
       </main>
 
-      {/* ================================================================= */}
-      {/* 🛠️ DEMO CONTROLLER: ปุ่มกดสำหรับพรีเซนต์ */}
-      {/* ================================================================= */}
+      {/* Demo Controller */}
       <div className="fixed bottom-6 right-6 z-50 bg-white p-3 rounded-2xl shadow-2xl border border-slate-200 flex flex-col gap-2 animate-bounce-in">
          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center mb-1">Demo Mode</div>
          <div className="flex gap-2">
@@ -316,7 +310,7 @@ function InfoCard({ icon, iconColor, badge, badgeColor, label, value, sub }) {
             </div>
             <p className="text-xs text-slate-400 mb-0.5 font-medium">{label}</p>
             <p className="font-bold text-slate-900 text-lg group-hover:text-blue-600 transition-colors truncate">{value}</p>
-            <p className="text-[10px] text-slate-400 mt-1 truncate">{sub}</p> {/* ✅ จุดนี้จะแสดง วันหมดอายุ/ปีจดทะเบียน */}
+            <p className="text-[10px] text-slate-400 mt-1 truncate">{sub}</p>
         </div>
     );
 }

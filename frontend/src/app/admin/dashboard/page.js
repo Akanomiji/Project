@@ -4,7 +4,7 @@ import Modal from '@/components/Modal';
 import { 
   LayoutDashboard, BellRing, Users, Database, BookOpen, LogOut, Menu, X,
   CheckCircle, Trash2, Search, AlertTriangle, FileText, Edit, Plus, Info,
-  TrendingUp, ShieldAlert, Globe, ExternalLink, PenTool, Lock
+  TrendingUp, ShieldAlert, Globe
 } from 'lucide-react';
 
 // --- Library กราฟและแผนที่ ---
@@ -18,59 +18,41 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('dashboard');
 
   // --- 1. Database จำลอง (State) ---
-  
-  // 👥 Users Data
+  // ข้อมูล Users
   const [users, setUsers] = useState([
     { id: 1, name: "Somchai Jaidee", email: "somchai@test.com", role: "Member", status: "Active", joinDate: "12 ม.ค. 67" },
     { id: 2, name: "Admin Boss", email: "admin@test.com", role: "Admin", status: "Active", joinDate: "10 ม.ค. 67" },
     { id: 3, name: "Hacker Kung", email: "hack@dark.net", role: "Member", status: "Banned", joinDate: "13 ม.ค. 67" },
   ]);
 
-  // 📢 Reports Data
+  // ข้อมูล Reports
   const [reports, setReports] = useState([
     { id: 101, url: "http://free-money-now.xyz", reporter: "user1", type: "Phishing", status: "Pending" },
     { id: 102, url: "https://fake-bank-login.com", reporter: "user2", type: "Malware", status: "Pending" },
     { id: 103, url: "https://google.com", reporter: "user3", type: "Scam", status: "Safe" },
   ]);
 
-  // ⛔ Blacklist Data
+  // ข้อมูล Blacklist
   const [blacklist, setBlacklist] = useState([
     { id: 1, url: "http://phishing-site.xyz", level: "Critical", date: "24 ม.ค. 67" }
   ]);
 
-  // 📝 Articles Data
-  const [articles, setArticles] = useState([
-    { id: 1, title: "ระวัง! SMS ปลอมระบาด", category: "News", views: 1240, date: "28 ม.ค. 67" },
-    { id: 2, title: "วิธีเช็คเว็บหลอกลวงเบื้องต้น", category: "Tips", views: 850, date: "25 ม.ค. 67" },
-  ]);
-
-  // --- 2. Action Handlers ---
-  
-  // Users Actions (เหลือแค่ Edit Status กับ Delete)
-  const handleEditUserStatus = (updatedUser) => {
-    // อัปเดตเฉพาะสถานะ
-    setUsers(users.map(u => u.id === updatedUser.id ? { ...u, status: updatedUser.status } : u));
-  };
-  
+  // --- 2. Action Handlers (ฟังก์ชันจัดการข้อมูล) ---
+  // Users Handlers
+  const handleAddUser = (newUser) => setUsers([...users, { ...newUser, id: Date.now(), joinDate: 'วันนี้' }]);
+  const handleEditUser = (updatedUser) => setUsers(users.map(u => u.id === updatedUser.id ? updatedUser : u));
   const handleDeleteUser = (id) => setUsers(users.filter(u => u.id !== id));
 
-  // Report Actions
+  // Report Handlers
   const handleApproveReport = (report) => {
     setReports(reports.map(r => r.id === report.id ? { ...r, status: 'Banned' } : r));
-    setBlacklist([...blacklist, { id: Date.now(), url: report.url, level: 'High', date: 'วันนี้' }]); 
+    setBlacklist([...blacklist, { id: Date.now(), url: report.url, level: 'High', date: 'วันนี้' }]); // Auto add to blacklist
   };
+  const handleRejectReport = (id) => setReports(reports.filter(r => r.id !== id));
 
-  const handleSafeReport = (id) => {
-    setReports(reports.map(r => r.id === id ? { ...r, status: 'Safe' } : r));
-  };
-
-  // Blacklist Actions
+  // Blacklist Handlers
   const handleAddBlacklist = (item) => setBlacklist([...blacklist, { ...item, id: Date.now(), date: 'วันนี้' }]);
   const handleDeleteBlacklist = (id) => setBlacklist(blacklist.filter(b => b.id !== id));
-
-  // Article Actions
-  const handleAddArticle = (article) => setArticles([...articles, { ...article, id: Date.now(), date: 'วันนี้', views: 0 }]);
-  const handleDeleteArticle = (id) => setArticles(articles.filter(a => a.id !== id));
 
 
   // --- Modal Config ---
@@ -87,14 +69,13 @@ export default function AdminDashboard() {
         case 'dashboard': 
             return <DashboardStats users={users} reports={reports} blacklist={blacklist} />;
         case 'users': 
-            // เอา onAdd ออกไปแล้ว
-            return <UserManagement users={users} onEdit={handleEditUserStatus} onDelete={handleDeleteUser} {...commonProps} />;
+            return <UserManagement users={users} onAdd={handleAddUser} onEdit={handleEditUser} onDelete={handleDeleteUser} {...commonProps} />;
         case 'reports': 
-            return <ReportManagement reports={reports} onApprove={handleApproveReport} onMarkSafe={handleSafeReport} {...commonProps} />;
+            return <ReportManagement reports={reports} onApprove={handleApproveReport} onReject={handleRejectReport} {...commonProps} />;
         case 'blacklist': 
             return <BlacklistManagement blacklist={blacklist} onAdd={handleAddBlacklist} onDelete={handleDeleteBlacklist} {...commonProps} />;
         case 'content': 
-            return <ContentManagement articles={articles} onAdd={handleAddArticle} onDelete={handleDeleteArticle} {...commonProps} />;
+            return <ContentManagement {...commonProps} />;
         default: return <DashboardStats />;
     }
   };
@@ -150,7 +131,7 @@ export default function AdminDashboard() {
              <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto ${modalConfig.type === 'danger' ? 'bg-red-100 text-red-600' : modalConfig.type === 'confirm' ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-500'}`}>
                 {modalConfig.type === 'danger' ? <Trash2 size={24} /> : modalConfig.type === 'confirm' ? <CheckCircle size={24} /> : <Info size={24} />}
              </div>
-            <div className="text-center w-full">{modalConfig.content}</div>
+            <div className="text-center">{modalConfig.content}</div>
         </div>
       </Modal>
 
@@ -159,9 +140,10 @@ export default function AdminDashboard() {
 }
 
 // ----------------------------------------------------------------------
-// 📊 1. DASHBOARD STATS
+// 📊 1. DASHBOARD STATS (มี Map & Graph)
 // ----------------------------------------------------------------------
 function DashboardStats({ users = [], reports = [], blacklist = [] }) {
+    // ข้อมูลกราฟจำลอง
     const chartData = [
         { name: 'จ.', attack: 4, report: 2 },
         { name: 'อ.', attack: 7, report: 5 },
@@ -171,6 +153,8 @@ function DashboardStats({ users = [], reports = [], blacklist = [] }) {
         { name: 'ส.', attack: 15, report: 10 },
         { name: 'อา.', attack: 10, report: 7 },
     ];
+
+    // ข้อมูลจุดบนแผนที่ (Mock)
     const threatMarkers = [
         { name: "USA", coordinates: [-100, 40] },
         { name: "China", coordinates: [105, 35] },
@@ -186,6 +170,7 @@ function DashboardStats({ users = [], reports = [], blacklist = [] }) {
                 <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold animate-pulse">● System Online</span>
             </div>
 
+            {/* Stat Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatBox title="ผู้ใช้งานทั้งหมด" value={users.length} icon={<Users size={24}/>} color="bg-blue-600" />
                 <StatBox title="รายงานรอตรวจสอบ" value={reports.filter(r => r.status === 'Pending').length} icon={<BellRing size={24}/>} color="bg-orange-500" />
@@ -194,6 +179,7 @@ function DashboardStats({ users = [], reports = [], blacklist = [] }) {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Live Threat Map 🌍 (Dark Theme ตามรูป) */}
                 <div className="lg:col-span-2 bg-[#1e293b] rounded-xl shadow-lg border border-slate-700 p-1 relative overflow-hidden group min-h-[400px]">
                     <div className="absolute top-4 left-4 z-10">
                         <h3 className="text-white font-bold flex items-center gap-2"><Globe size={18} className="text-blue-400"/> Live Threat Map</h3>
@@ -203,6 +189,7 @@ function DashboardStats({ users = [], reports = [], blacklist = [] }) {
                          <span className="w-2 h-2 rounded-full bg-red-500 animate-ping"></span>
                          <span className="text-red-400 text-xs font-bold">LIVE</span>
                     </div>
+                    
                     <ComposableMap projectionConfig={{ scale: 160 }} style={{ width: "100%", height: "100%" }}>
                         <Geographies geography={geoUrl}>
                             {({ geographies }) => geographies.map((geo) => (
@@ -218,6 +205,7 @@ function DashboardStats({ users = [], reports = [], blacklist = [] }) {
                     </ComposableMap>
                 </div>
 
+                {/* Graph 📈 */}
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col">
                     <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><TrendingUp size={18} className="text-blue-600"/> สถิติการโจมตี (7 วัน)</h3>
                     <div className="flex-1 w-full min-h-[250px]">
@@ -257,49 +245,21 @@ function StatBox({ title, value, icon, color }) {
 }
 
 // ----------------------------------------------------------------------
-// 👥 2. USER MANAGEMENT (Fix: NO ADD, Only Edit Status)
+// 👥 2. USER MANAGEMENT (Add/Edit/Delete)
 // ----------------------------------------------------------------------
-function UserManagement({ users, onEdit, onDelete, openModal }) {
-    
-    // ฟอร์มแก้ไขเฉพาะสถานะ
-    const UserStatusForm = ({ initialData, onSave }) => {
-        const [status, setStatus] = useState(initialData.status);
-
+function UserManagement({ users, onAdd, onEdit, onDelete, openModal }) {
+    // ฟอร์มเพิ่ม/แก้ไข (Component ย่อยภายใน)
+    const UserForm = ({ initialData, onSave }) => {
+        const [formData, setFormData] = useState(initialData || { name: '', email: '', role: 'Member', status: 'Active' });
         return (
-            <div className="flex flex-col gap-4 text-left w-full">
-                {/* ส่วนข้อมูลที่แก้ไขไม่ได้ (Read Only) */}
-                <div className="bg-slate-50 p-4 rounded-lg border border-slate-100 space-y-3">
-                    <div className="flex justify-between items-center border-b border-slate-200 pb-2">
-                         <span className="text-xs font-bold text-slate-500">ชื่อสมาชิก</span>
-                         <span className="text-sm font-medium text-slate-700">{initialData.name}</span>
-                    </div>
-                    <div className="flex justify-between items-center border-b border-slate-200 pb-2">
-                         <span className="text-xs font-bold text-slate-500">อีเมล</span>
-                         <span className="text-sm font-medium text-slate-700">{initialData.email}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                         <span className="text-xs font-bold text-slate-500">Role</span>
-                         <span className="text-xs font-bold px-2 py-1 bg-slate-200 rounded text-slate-600">{initialData.role}</span>
-                    </div>
-                </div>
-
-                {/* ส่วนที่แก้ได้ (Status) */}
-                <div>
-                    <label className="text-xs font-bold text-slate-500 mb-1 block">สถานะบัญชี <span className="text-red-500">*</span></label>
-                    <select className={`border p-3 rounded-lg w-full font-bold outline-none focus:ring-2 ${status === 'Active' ? 'text-green-600 border-green-200 bg-green-50 focus:ring-green-500' : 'text-red-600 border-red-200 bg-red-50 focus:ring-red-500'}`}
-                        value={status} onChange={e=>setStatus(e.target.value)}>
-                        <option value="Active">✅ Active (ปกติ)</option>
-                        <option value="Banned">🚫 Banned (ระงับการใช้งาน)</option>
-                    </select>
-                    <p className="text-xs text-slate-400 mt-2">
-                        *หากเลือก <span className="text-red-500 font-bold">Banned</span> ผู้ใช้จะไม่สามารถเข้าสู่ระบบได้
-                    </p>
-                </div>
-                
-                <div className="flex justify-end pt-4 border-t mt-2">
-                    <button onClick={() => onSave({ ...initialData, status })} className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 shadow-md transition w-full md:w-auto">
-                        บันทึกสถานะ
-                    </button>
+            <div className="flex flex-col gap-3 text-left">
+                <input type="text" placeholder="ชื่อ-นามสกุล" className="border p-2 rounded" value={formData.name} onChange={e=>setFormData({...formData, name: e.target.value})} />
+                <input type="email" placeholder="อีเมล" className="border p-2 rounded" value={formData.email} onChange={e=>setFormData({...formData, email: e.target.value})} />
+                <select className="border p-2 rounded" value={formData.role} onChange={e=>setFormData({...formData, role: e.target.value})}>
+                    <option value="Member">Member</option><option value="Admin">Admin</option>
+                </select>
+                <div className="flex justify-end pt-2">
+                    <button onClick={() => onSave(formData)} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">บันทึกข้อมูล</button>
                 </div>
             </div>
         );
@@ -309,7 +269,11 @@ function UserManagement({ users, onEdit, onDelete, openModal }) {
         <div className="animate-in fade-in zoom-in-95 duration-300">
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-2xl font-bold text-slate-900">จัดการสมาชิก ({users.length})</h1>
-                {/* เอาปุ่มเพิ่มสมาชิกออกแล้วตามคำขอ */}
+                <button onClick={() => openModal({
+                    title: 'เพิ่มสมาชิกใหม่',
+                    content: <UserForm onSave={(data) => { onAdd(data); document.querySelector('.modal-close-btn')?.click(); }} />, // Hacky way to close, better handled via context
+                    type: 'info'
+                })} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 shadow-sm"><Plus size={18}/> เพิ่มสมาชิก</button>
             </div>
             
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
@@ -325,12 +289,12 @@ function UserManagement({ users, onEdit, onDelete, openModal }) {
                                 <td className="px-6 py-4"><span className={`px-2 py-1 rounded-full text-xs font-bold ${u.status==='Active'?'bg-green-100 text-green-700':'bg-red-100 text-red-700'}`}>{u.status}</span></td>
                                 <td className="px-6 py-4 text-right flex justify-end gap-2">
                                     <button onClick={() => openModal({
-                                        title: 'จัดการสถานะสมาชิก',
-                                        content: <UserStatusForm initialData={u} onSave={(data) => { onEdit(data); document.querySelector('.modal-close-btn')?.click(); }} />,
+                                        title: 'แก้ไขข้อมูล',
+                                        content: <UserForm initialData={u} onSave={(data) => { onEdit({...data, id: u.id}); }} />,
                                         type: 'info'
                                     })} className="text-blue-500 hover:bg-blue-50 p-2 rounded"><Edit size={16}/></button>
                                     <button onClick={() => openModal({
-                                        title: 'ยืนยันการลบ', content: <p>คุณแน่ใจไหมที่จะลบ {u.name} ออกจากระบบถาวร?</p>, type: 'danger', onConfirm: () => onDelete(u.id)
+                                        title: 'ยืนยันการลบ', content: <p>คุณแน่ใจไหมที่จะลบ {u.name}?</p>, type: 'danger', onConfirm: () => onDelete(u.id)
                                     })} className="text-red-500 hover:bg-red-50 p-2 rounded"><Trash2 size={16}/></button>
                                 </td>
                             </tr>
@@ -343,9 +307,9 @@ function UserManagement({ users, onEdit, onDelete, openModal }) {
 }
 
 // ----------------------------------------------------------------------
-// 📢 3. REPORT MANAGEMENT (Safe/Ban)
+// 📢 3. REPORT MANAGEMENT (Approve/Reject)
 // ----------------------------------------------------------------------
-function ReportManagement({ reports, onApprove, onMarkSafe, openModal }) {
+function ReportManagement({ reports, onApprove, onReject, openModal }) {
     return (
         <div className="animate-in fade-in zoom-in-95 duration-300">
             <h1 className="text-2xl font-bold text-slate-900 mb-6">จัดการการแจ้งเบาะแส ({reports.length})</h1>
@@ -357,36 +321,15 @@ function ReportManagement({ reports, onApprove, onMarkSafe, openModal }) {
                     <tbody className="divide-y divide-slate-100">
                         {reports.map(r => (
                             <tr key={r.id} className="hover:bg-slate-50">
-                                <td className="px-6 py-4">
-                                    <div className="flex items-center gap-2">
-                                        <span className="font-mono text-slate-700">{r.url}</span>
-                                        <a href={r.url} target="_blank" rel="noreferrer" className="text-slate-400 hover:text-blue-500"><ExternalLink size={12}/></a>
-                                    </div>
-                                </td>
-                                <td className="px-6 py-4 font-bold text-slate-600">{r.type}</td>
-                                <td className="px-6 py-4">
-                                    {r.status === 'Pending' && <span className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded text-xs font-bold">รอตรวจสอบ</span>}
-                                    {r.status === 'Banned' && <span className="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-bold">อันตราย (Banned)</span>}
-                                    {r.status === 'Safe' && <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold">ปลอดภัย (Safe)</span>}
-                                </td>
+                                <td className="px-6 py-4 font-mono text-slate-700">{r.url}</td>
+                                <td className="px-6 py-4 text-red-500 font-bold">{r.type}</td>
+                                <td className="px-6 py-4">{r.status==='Pending' ? <span className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded text-xs font-bold">รอตรวจสอบ</span> : <span className="bg-gray-100 text-gray-500 px-2 py-1 rounded text-xs">ดำเนินการแล้ว</span>}</td>
                                 <td className="px-6 py-4 text-right">
-                                    {r.status === 'Pending' ? (
+                                    {r.status === 'Pending' && (
                                         <div className="flex justify-end gap-2">
-                                            <button 
-                                                onClick={() => openModal({ title: 'ยืนยัน Blacklist', content: 'URL นี้จะถูกเพิ่มเข้า Blacklist และผู้ใช้จะเข้าถึงไม่ได้', type: 'danger', onConfirm: () => onApprove(r) })} 
-                                                className="bg-red-600 text-white px-3 py-1.5 rounded hover:bg-red-700 text-xs font-bold shadow-sm"
-                                            >
-                                                แบน (Ban)
-                                            </button>
-                                            <button 
-                                                onClick={() => openModal({ title: 'ยืนยันความปลอดภัย', content: 'URL นี้จะถูกทำเครื่องหมายว่า "ปลอดภัย" และไม่ถูกแบน', type: 'confirm', onConfirm: () => onMarkSafe(r.id) })} 
-                                                className="bg-green-600 text-white px-3 py-1.5 rounded hover:bg-green-700 text-xs font-bold shadow-sm"
-                                            >
-                                                ปลอดภัย (Safe)
-                                            </button>
+                                            <button onClick={() => openModal({ title: 'ยืนยัน Blacklist', content: 'URL นี้จะถูกเพิ่มเข้า Blacklist ทันที', type: 'confirm', onConfirm: () => onApprove(r) })} className="bg-red-100 text-red-600 p-2 rounded hover:bg-red-200"><ShieldAlert size={16}/></button>
+                                            <button onClick={() => openModal({ title: 'ปฏิเสธรายงาน', content: 'รายงานนี้จะถูกลบออก', type: 'danger', onConfirm: () => onReject(r.id) })} className="bg-slate-100 text-slate-600 p-2 rounded hover:bg-slate-200"><Trash2 size={16}/></button>
                                         </div>
-                                    ) : (
-                                        <span className="text-slate-400 text-xs">ตรวจสอบแล้ว</span>
                                     )}
                                 </td>
                             </tr>
@@ -405,9 +348,9 @@ function BlacklistManagement({ blacklist, onAdd, onDelete, openModal }) {
     const AddForm = ({ onSave }) => {
         const [url, setUrl] = useState('');
         return (
-            <div className="flex flex-col gap-3 w-full">
-                <input type="text" placeholder="URL เว็บอันตราย (เช่น http://...)" className="border p-2 rounded w-full outline-none focus:ring-2 focus:ring-red-500" value={url} onChange={e=>setUrl(e.target.value)} />
-                <button onClick={() => onSave({ url, level: 'Critical' })} className="bg-red-600 text-white px-4 py-2 rounded font-bold hover:bg-red-700">ยืนยันการแบน</button>
+            <div className="flex flex-col gap-3">
+                <input type="text" placeholder="URL เว็บอันตราย (เช่น http://...)" className="border p-2 rounded w-full" value={url} onChange={e=>setUrl(e.target.value)} />
+                <button onClick={() => onSave({ url, level: 'Critical' })} className="bg-red-600 text-white px-4 py-2 rounded">เพิ่ม Blacklist</button>
             </div>
         )
     }
@@ -416,7 +359,7 @@ function BlacklistManagement({ blacklist, onAdd, onDelete, openModal }) {
         <div className="animate-in fade-in zoom-in-95 duration-300">
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-2xl font-bold text-slate-900">ฐานข้อมูล Blacklist</h1>
-                <button onClick={() => openModal({ title: 'เพิ่ม Blacklist', content: <AddForm onSave={(d) => { onAdd(d); document.querySelector('.modal-close-btn')?.click(); }} />, type: 'info' })} className="bg-red-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-red-700"><Plus size={18}/> เพิ่มรายการ</button>
+                <button onClick={() => openModal({ title: 'เพิ่ม Blacklist', content: <AddForm onSave={(d) => { onAdd(d); }} />, type: 'info' })} className="bg-red-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-red-700"><Plus size={18}/> เพิ่มรายการ</button>
             </div>
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <table className="w-full text-sm text-left">
@@ -442,58 +385,16 @@ function BlacklistManagement({ blacklist, onAdd, onDelete, openModal }) {
 }
 
 // ----------------------------------------------------------------------
-// 📝 5. CONTENT MANAGEMENT
+// 📝 5. CONTENT MANAGEMENT (Placeholder)
 // ----------------------------------------------------------------------
-function ContentManagement({ articles, onAdd, onDelete, openModal }) {
-    
-    const ArticleForm = ({ onSave }) => {
-        const [form, setForm] = useState({ title: '', category: 'News' });
-        return (
-            <div className="flex flex-col gap-3 text-left w-full">
-                <div>
-                    <label className="text-xs font-bold text-slate-500">หัวข้อบทความ</label>
-                    <input type="text" className="border p-2 rounded w-full outline-none focus:ring-2 focus:ring-blue-500" placeholder="ใส่หัวข้อ..." value={form.title} onChange={e=>setForm({...form, title: e.target.value})} />
-                </div>
-                <div>
-                    <label className="text-xs font-bold text-slate-500">หมวดหมู่</label>
-                    <select className="border p-2 rounded w-full" value={form.category} onChange={e=>setForm({...form, category: e.target.value})}>
-                        <option value="News">ข่าวสาร (News)</option>
-                        <option value="Tips">เกร็ดความรู้ (Tips)</option>
-                        <option value="Warning">แจ้งเตือนภัย (Warning)</option>
-                    </select>
-                </div>
-                <button onClick={() => onSave(form)} className="bg-blue-600 text-white px-4 py-2 rounded mt-2 hover:bg-blue-700">เผยแพร่บทความ</button>
-            </div>
-        )
-    }
-
+function ContentManagement({ openModal }) {
     return (
         <div className="animate-in fade-in zoom-in-95 duration-300">
-            <div className="flex justify-between items-center mb-6">
-                <h1 className="text-2xl font-bold text-slate-900">จัดการบทความ ({articles.length})</h1>
-                <button onClick={() => openModal({ title: 'สร้างบทความใหม่', content: <ArticleForm onSave={(d) => { onAdd(d); document.querySelector('.modal-close-btn')?.click(); }} />, type: 'info' })} 
-                    className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 shadow-sm">
-                    <Plus size={18}/> สร้างบทความ
-                </button>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {articles.map(article => (
-                    <div key={article.id} className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm hover:shadow-md transition relative group">
-                        <div className="flex justify-between items-start mb-3">
-                            <span className={`text-xs font-bold px-2 py-1 rounded ${article.category === 'Warning' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>
-                                {article.category}
-                            </span>
-                            <button onClick={() => openModal({ title: 'ลบบทความ', content: 'ต้องการลบบทความนี้หรือไม่?', type: 'danger', onConfirm: () => onDelete(article.id) })} className="text-slate-300 hover:text-red-500"><Trash2 size={18}/></button>
-                        </div>
-                        <h3 className="font-bold text-slate-800 text-lg mb-2 line-clamp-2">{article.title}</h3>
-                        <div className="flex items-center gap-4 text-xs text-slate-500 mt-4">
-                            <span className="flex items-center gap-1"><PenTool size={12}/> Admin</span>
-                            <span>• {article.date}</span>
-                            <span>• {article.views} views</span>
-                        </div>
-                    </div>
-                ))}
+            <h1 className="text-2xl font-bold text-slate-900 mb-6">จัดการบทความความรู้</h1>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div onClick={() => openModal({ title: 'Coming Soon', content: 'ระบบเขียนบทความกำลังพัฒนา', type: 'info' })} className="border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center min-h-[200px] text-slate-400 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 cursor-pointer transition">
+                    <Plus size={32} /> <span className="font-bold mt-2">สร้างบทความใหม่</span>
+                </div>
             </div>
         </div>
     )
@@ -519,6 +420,7 @@ function SidebarContent({ activeTab, setActiveTab }) {
                 <MenuItem icon={<Database size={20} />} label="ฐานข้อมูล Blacklist" id="blacklist" />
                 <MenuItem icon={<BookOpen size={20} />} label="จัดการบทความ" id="content" />
             </nav>
+            {/*<div className="p-4 border-t border-slate-800"><button className="flex items-center gap-3 w-full px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg"><LogOut size={20} /><span className="font-medium text-sm">ออกจากระบบ</span></button></div>*/}
         </>
     );
 }
