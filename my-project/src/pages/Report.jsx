@@ -41,9 +41,9 @@ export default function ReportPage() {
         
         {/* Header */}
         <div className="mb-8">
-            <Link to="/dashboard" className="inline-flex items-center gap-2 text-slate-500 hover:text-blue-600 mb-4 font-bold">
+            {/* <Link to="/dashboard" className="inline-flex items-center gap-2 text-slate-500 hover:text-blue-600 mb-4 font-bold">
                 <ArrowLeft size={18} /> กลับ Dashboard
-            </Link>
+            </Link> */}
             <h1 className="text-3xl font-extrabold text-slate-800 flex items-center gap-3">
                 <AlertTriangle className="text-red-500" size={32} /> แจ้งเบาะแสเว็บอันตราย
             </h1>

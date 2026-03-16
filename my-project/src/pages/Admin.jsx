@@ -1,910 +1,1566 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom'; // ✅ เพิ่ม useNavigate
-import { 
-  LayoutDashboard, BellRing, Users, BookOpen, LogOut, Menu, X,
-  CheckCircle, Trash2, Search, FileText, Edit, Plus,
-  ShieldAlert, Globe, ExternalLink, Save, XCircle,
-  ShieldBan, Ban, ChevronLeft, ChevronRight, Eye, Image as ImageIcon, UploadCloud,
-  Activity, ShieldCheck, AlertOctagon, Home // ✅ เพิ่ม Home icon
-} from 'lucide-react';
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  LayoutDashboard,
+  Users,
+  BookOpen,
+  LogOut,
+  Menu,
+  X,
+  CheckCircle,
+  Trash2,
+  Search,
+  FileText,
+  Edit,
+  Plus,
+  ShieldAlert,
+  Globe,
+  Ban,
+  ChevronLeft,
+  ChevronRight,
+  Eye,
+  Activity,
+  Calendar,
+  XCircle,
+  ChevronDown,
+  MousePointerClick,
+  Image as ImageIcon,
+} from "lucide-react";
 
 // --- Library กราฟและแผนที่ ---
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { ComposableMap, Geographies, Geography, Marker } from "react-simple-maps";
+// เพิ่มการ import Line จาก react-simple-maps
+import { ComposableMap, Geographies, Geography, Marker, Line } from "react-simple-maps";
+// เพิ่มการ import PieChart, Pie, Cell, Legend จาก recharts
+import { 
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, Legend 
+} from 'recharts';
 
 const geoUrl = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
 
 // ==========================================
-// 🛠️ Helper Component: Pagination
+// 🛠️ Helper Functions (แปลงภาษา)
 // ==========================================
-function TablePagination({ currentPage, totalPages, onPageChange, totalItems }) {
-  return (
-    <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50">
-       <span className="text-sm text-slate-500">
-          แสดงข้อมูล {totalItems > 0 ? (currentPage - 1) * 5 + 1 : 0} ถึง {Math.min(currentPage * 5, totalItems)} จาก {totalItems} รายการ
-       </span>
-       <div className="flex items-center gap-2">
-          <button 
-            onClick={() => onPageChange(currentPage - 1)} 
-            disabled={currentPage === 1}
-            className="p-2 rounded-lg hover:bg-white border border-transparent hover:border-slate-200 disabled:opacity-30 disabled:hover:bg-transparent transition-all"
-          >
-            <ChevronLeft size={18} className="text-slate-600" />
-          </button>
-          <span className="text-sm font-bold text-slate-700">
-            หน้า {currentPage} / {totalPages || 1}
-          </span>
-          <button 
-            onClick={() => onPageChange(currentPage + 1)} 
-            disabled={currentPage === totalPages || totalPages === 0}
-            className="p-2 rounded-lg hover:bg-white border border-transparent hover:border-slate-200 disabled:opacity-30 disabled:hover:bg-transparent transition-all"
-          >
-            <ChevronRight size={18} className="text-slate-600" />
-          </button>
-       </div>
-    </div>
-  );
-}
+const getStatusBadge = (status) => {
+  switch (status) {
+    // User Status
+    case "ACTIVE":
+      return {
+        label: "ใช้งานปกติ",
+        className: "bg-green-100 text-green-700 border-green-200",
+      };
+    case "BANNED":
+      return {
+        label: "ถูกระงับ",
+        className: "bg-red-100 text-red-700 border-red-200",
+      };
+    // Report Status
+    case "PENDING":
+      return {
+        label: "รอตรวจสอบ",
+        className: "bg-yellow-100 text-yellow-800 border-yellow-200",
+      };
+    case "RESOLVED":
+      return {
+        label: "ตรวจสอบแล้ว",
+        className: "bg-green-100 text-green-700 border-green-200",
+      };
+    case "REJECTED":
+      return {
+        label: "ปฏิเสธ",
+        className: "bg-slate-100 text-slate-600 border-slate-200",
+      };
+    // Site Status
+    case "SAFE":
+      return {
+        label: "ปลอดภัย",
+        className: "bg-green-100 text-green-700 border-green-200",
+      };
+    case "DANGEROUS":
+      return {
+        label: "อันตราย",
+        className: "bg-red-100 text-red-700 border-red-200",
+      };
+    // Knowledge Status
+    case "Published":
+      return {
+        label: "เผยแพร่แล้ว",
+        className: "bg-blue-100 text-blue-700 border-blue-200",
+      };
+    case "Draft":
+      return {
+        label: "ฉบับร่าง",
+        className: "bg-slate-200 text-slate-600 border-slate-300",
+      };
+    default:
+      return { label: status, className: "bg-slate-100 text-slate-600" };
+  }
+};
+
+const getRoleName = (role) =>
+  role === "ADMIN" ? "ผู้ดูแลระบบ" : "สมาชิกทั่วไป";
 
 // ==========================================
-// 🛠️ Internal Component: Modal
+// 🛠️ Component: Pagination (ตัวแบ่งหน้า)
 // ==========================================
-function Modal({ isOpen, onClose, title, children }) {
-  if (!isOpen) return null;
+function TablePagination({
+  currentPage,
+  totalPages,
+  onPageChange,
+  totalItems,
+}) {
+  if (totalItems === 0) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-100 animate-scale-up max-h-[90vh] overflow-y-auto">
-        <div className="flex justify-between items-center p-4 border-b border-slate-100 bg-slate-50 sticky top-0 z-10">
-          <h3 className="font-bold text-slate-800 text-lg">{title}</h3>
-          <button onClick={onClose} className="p-1 hover:bg-slate-200 rounded-full transition-colors">
-            <X size={20} className="text-slate-500" />
-          </button>
-        </div>
-        <div className="p-6">
-          {children}
-        </div>
+    <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50 rounded-b-xl">
+      <span className="text-xs text-slate-500 font-medium">
+        แสดง {(currentPage - 1) * 5 + 1} ถึง{" "}
+        {Math.min(currentPage * 5, totalItems)} จาก {totalItems} รายการ
+      </span>
+      <div className="flex gap-2">
+        <button
+          onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+          disabled={currentPage === 1}
+          className="p-1.5 border border-slate-200 rounded-lg hover:bg-white hover:text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition bg-white text-slate-500"
+        >
+          <ChevronLeft size={16} />
+        </button>
+        <span className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700">
+          {currentPage} / {totalPages || 1}
+        </span>
+        <button
+          onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
+          disabled={currentPage === totalPages || totalPages === 0}
+          className="p-1.5 border border-slate-200 rounded-lg hover:bg-white hover:text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition bg-white text-slate-500"
+        >
+          <ChevronRight size={16} />
+        </button>
       </div>
     </div>
   );
 }
 
 // ==========================================
-// 🚀 MAIN COMPONENT: AdminDashboard
+// 🚀 Main Component: AdminDashboard
 // ==========================================
 export default function AdminDashboard() {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState('dashboard');
-  
-  // --- Mock Data ---
-  const [users, setUsers] = useState(Array.from({ length: 12 }, (_, i) => ({
-    id: i + 1, 
-    name: `User Demo ${i+1}`, 
-    email: `user${i+1}@test.com`, 
-    role: i === 0 ? "Admin" : "Member", 
-    status: i % 3 === 0 ? "Banned" : "Active", 
-    joinDate: "12 ม.ค. 67" 
-  })));
+  const [activeTab, setActiveTab] = useState("dashboard");
+  const [isSidebarOpen, setSidebarOpen] = useState(true);
+  const navigate = useNavigate();
 
-  const [reports, setReports] = useState(Array.from({ length: 8 }, (_, i) => ({
-    id: 100 + i, 
-    url: `http://suspicious-link-${i}.com`, 
-    type: i % 2 === 0 ? "Phishing" : "Scam", 
-    reporter: `User${i}`, 
-    status: i === 0 ? "Pending" : (i % 2 === 0 ? "Verified" : "Rejected"), 
-    date: "วันนี้ 10:30" 
-  })));
-
-  const [blacklist, setBlacklist] = useState([
-    { id: 1, url: "paypal-security-check.com", reason: "Phishing Clone", date: "12 ม.ค. 67", admin: "Admin Boss" },
-    { id: 2, url: "free-bet-888.net", reason: "Gambling/Scam", date: "14 ก.พ. 67", admin: "System AI" },
-  ]);
-
-  const [knowledgeList, setKnowledgeList] = useState([
-    { id: 1, title: "วิธีสังเกต Phishing URL", category: "Basics", views: 1240, lastUpdate: "10 ม.ค. 67", image: "https://images.unsplash.com/photo-1563206767-5b1d97289374?auto=format&fit=crop&w=300&q=80", content: "เนื้อหาบทความ..." },
-    { id: 2, title: "Top 10 กลโกงปี 2024", category: "Trends", views: 850, lastUpdate: "15 ก.พ. 67", image: null, content: "เนื้อหาบทความ..." },
-    { id: 3, title: "ความปลอดภัยของรหัสผ่าน", category: "Basics", views: 500, lastUpdate: "16 ก.พ. 67", image: "https://images.unsplash.com/photo-1614064641938-3bbee52942c7?auto=format&fit=crop&w=300&q=80", content: "เนื้อหาบทความ..." },
-    { id: 4, title: "Malware คืออะไร?", category: "Advanced", views: 320, lastUpdate: "18 ก.พ. 67", image: null, content: "เนื้อหาบทความ..." },
-  ]);
-
-  // --- Modal Logic ---
-  const [isModalOpen, setModalOpen] = useState(false);
-  const [modalType, setModalType] = useState(null); 
-  const [selectedUser, setSelectedUser] = useState(null); 
-  const [selectedKnowledge, setSelectedKnowledge] = useState(null);
-
-  const openEditUserModal = (user) => { setSelectedUser(user); setModalType('editUser'); setModalOpen(true); };
-  const openAddKnowledgeModal = () => { setSelectedKnowledge(null); setModalType('addKnowledge'); setModalOpen(true); };
-  const openEditKnowledgeModal = (item) => { setSelectedKnowledge(item); setModalType('editKnowledge'); setModalOpen(true); };
-  const openAddBlacklistModal = () => { setModalType('addBlacklist'); setModalOpen(true); };
-
-  // --- Actions ---
-  const deleteUser = (id) => setUsers(users.filter(u => u.id !== id));
-  const updateReportStatus = (id, newStatus) => setReports(reports.map(r => r.id === id ? { ...r, status: newStatus } : r));
-  const deleteKnowledge = (id) => setKnowledgeList(knowledgeList.filter(k => k.id !== id));
-  
-  const saveKnowledge = (data) => {
-     if (modalType === 'addKnowledge') {
-        const newItem = { 
-            id: Date.now(), 
-            ...data, 
-            views: 0, 
-            lastUpdate: "วันนี้" 
-        };
-        setKnowledgeList([newItem, ...knowledgeList]);
-     } else {
-        setKnowledgeList(knowledgeList.map(k => k.id === data.id ? data : k));
-     }
-     setModalOpen(false);
+  const handleLogout = () => {
+    navigate("/");
   };
 
-  const deleteBlacklist = (id) => setBlacklist(blacklist.filter(b => b.id !== id));
-  const addBlacklist = (newItem) => {
-    setBlacklist([...blacklist, { ...newItem, id: Date.now(), date: "วันนี้", admin: "Admin Boss" }]);
-    setModalOpen(false);
-  };
-
-  const saveUserStatus = () => {
-    setUsers(users.map(u => u.id === selectedUser.id ? selectedUser : u));
-    setModalOpen(false);
-    setSelectedUser(null);
-  };
+  const menuItems = [
+    {
+      id: "dashboard",
+      label: "ภาพรวมระบบ",
+      icon: <LayoutDashboard size={20} />,
+    },
+    { id: "users", label: "จัดการผู้ใช้", icon: <Users size={20} /> },
+    { id: "reports", label: "รายการแจ้งเบาะแส", icon: <FileText size={20} /> },
+    {
+      id: "sites",
+      label: "จัดการเว็บไซต์",
+      icon: <Globe size={20} />,
+    },
+    { id: "knowledge", label: "คลังความรู้", icon: <BookOpen size={20} /> },
+    // Settings ตัดออกแล้ว
+  ];
 
   return (
-    // ✅ ใช้ h-screen เพื่อให้เต็มจอ (และซ่อน Navbar หลักที่ App.jsx)
-    <div className="flex h-screen bg-slate-50 overflow-hidden font-sans">
-      
-      {/* 📱 Mobile Sidebar Overlay */}
-      {isSidebarOpen && (
-        <div 
-          className="fixed inset-0 z-40 bg-slate-900/20 lg:hidden backdrop-blur-sm"
-          onClick={() => setIsSidebarOpen(false)}
-        ></div>
-      )}
-
-      {/* 🧭 SIDEBAR */}
-      <aside className={`fixed lg:static inset-y-0 left-0 z-50 w-64 bg-white border-r border-slate-200 transform transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'} flex flex-col shadow-xl`}>
-        {/* Logo */}
-        <div className="h-16 flex items-center px-6 border-b border-slate-100">
-          <ShieldAlert className="w-8 h-8 text-blue-600 mr-2" />
-          <span className="text-xl font-bold text-slate-800">PhishWise</span>
+    
+    <div className="flex h-screen bg-slate-50 font-sans text-slate-900 overflow-hidden">
+      {/* Sidebar */}
+      <aside
+        className={`${isSidebarOpen ? "w-64" : "w-20"} bg-white border-r border-slate-200 transition-all duration-300 flex flex-col z-20`}
+      >
+        <div className="h-16 flex items-center justify-between px-4 border-b border-slate-100">
+          {isSidebarOpen ? (
+            <div className="flex items-center gap-2 text-blue-600 font-bold text-xl tracking-tight">
+              <ShieldAlert size={28} /> PhishWise
+            </div>
+          ) : (
+            <div className="mx-auto text-blue-600">
+              <ShieldAlert size={28} />
+            </div>
+          )}
+          <button
+            onClick={() => setSidebarOpen(!isSidebarOpen)}
+            className="text-slate-400 hover:text-blue-600 transition"
+          >
+            {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
         </div>
-        
-        {/* Menu Content */}
-        <SidebarContent activeTab={activeTab} setActiveTab={(tab) => { setActiveTab(tab); setIsSidebarOpen(false); }} />
+
+        <nav className="flex-1 py-6 px-3 space-y-2 overflow-y-auto">
+          {menuItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => setActiveTab(item.id)}
+              className={`flex items-center gap-3 px-3 py-3 w-full rounded-xl transition-all font-medium ${
+                activeTab === item.id
+                  ? "bg-blue-600 text-white shadow-md shadow-blue-200"
+                  : "text-slate-500 hover:bg-slate-50 hover:text-blue-600"
+              }`}
+            >
+              <div className="shrink-0">{item.icon}</div>
+              {isSidebarOpen && <span>{item.label}</span>}
+            </button>
+          ))}
+        </nav>
+
+        <div className="p-4 border-t border-slate-100">
+          <button
+            onClick={handleLogout}
+            className={`flex items-center gap-3 px-3 py-3 w-full rounded-xl text-red-500 hover:bg-red-50 transition-all font-medium ${!isSidebarOpen && "justify-center"}`}
+          >
+            <LogOut size={20} />
+            {isSidebarOpen && "ออกจากระบบ"}
+          </button>
+        </div>
       </aside>
 
-      {/* 📄 MAIN CONTENT */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        
-        {/* Header */}
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 lg:px-8 z-10 shadow-sm shrink-0">
-            <div className="flex items-center gap-3">
-                <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden p-2 text-slate-500 hover:bg-slate-100 rounded-lg">
-                    <Menu size={24} />
-                </button>
-                <h1 className="text-xl font-bold text-slate-800 ml-2 lg:ml-0">
-                    {activeTab === 'dashboard' && 'ภาพรวมระบบ'}
-                    {activeTab === 'reports' && 'จัดการแจ้งเบาะแส'}
-                    {activeTab === 'blacklist' && 'จัดการบัญชีดำ (Blacklist)'}
-                    {activeTab === 'users' && 'จัดการสมาชิก'}
-                    {activeTab === 'knowledge' && 'คลังความรู้'}
-                </h1>
+      {/* Main Content */}
+      <main className="flex-1 overflow-y-auto relative">
+        <header className="h-16 bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-10 px-8 flex items-center justify-between">
+          <h2 className="text-xl font-bold text-slate-800 capitalize">
+            {menuItems.find((m) => m.id === activeTab)?.label}
+          </h2>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-green-100 text-green-700 rounded-full text-xs font-bold shadow-sm">
+              <Activity size={14} /> ระบบทำงานปกติ
             </div>
-            
-            {/* User Profile (Optional) */}
-             <div className="flex items-center gap-3">
-                <div className="hidden sm:block text-right">
-                    <p className="text-sm font-bold text-slate-700">Admin User</p>
-                    <p className="text-xs text-slate-500">Administrator</p>
-                </div>
-                <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold">
-                    A
-                </div>
-             </div>
+            <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-full flex items-center justify-center font-bold shadow-md">
+              แอดมิน
+            </div>
+          </div>
         </header>
 
-        {/* Content Area - Scrollable */}
-        <main className="flex-1 overflow-y-auto p-4 lg:p-8 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent">
-            {activeTab === 'dashboard' && <DashboardView />}
-            {activeTab === 'reports' && <ReportsView reports={reports} updateStatus={updateReportStatus} />}
-            {activeTab === 'blacklist' && <BlacklistView blacklist={blacklist} deleteItem={deleteBlacklist} openAddModal={openAddBlacklistModal} />}
-            {activeTab === 'users' && <UsersView users={users} deleteUser={deleteUser} openEditModal={openEditUserModal} />}
-            {activeTab === 'knowledge' && <KnowledgeView list={knowledgeList} deleteItem={deleteKnowledge} openAddModal={openAddKnowledgeModal} openEditModal={openEditKnowledgeModal} />}
-        </main>
-      </div>
-
-      {/* 🖼️ MODAL POPUP */}
-      <Modal 
-        isOpen={isModalOpen} 
-        onClose={() => setModalOpen(false)} 
-        title={
-            modalType === 'addKnowledge' ? 'สร้างกระทู้ / บทความใหม่' : 
-            modalType === 'editKnowledge' ? 'แก้ไขบทความ' :
-            modalType === 'addBlacklist' ? 'เพิ่ม Blacklist' : 
-            'แก้ไขสถานะสมาชิก'
-        }
-      >
-         {/* Forms for Modals */}
-         {(modalType === 'addKnowledge' || modalType === 'editKnowledge') && (
-             <KnowledgeForm initialData={selectedKnowledge} onSubmit={saveKnowledge} onCancel={() => setModalOpen(false)} />
-         )}
-         {modalType === 'addBlacklist' && (
-            <form onSubmit={(e) => {
-                e.preventDefault();
-                addBlacklist({ url: e.target.url.value, reason: e.target.reason.value });
-            }} className="flex flex-col gap-4">
-                <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-2">URL ที่ต้องการแบน</label>
-                    <input name="url" type="text" placeholder="ex. malicious-site.com" required className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 outline-none focus:ring-2 focus:ring-red-500" />
-                </div>
-                <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-2">เหตุผล</label>
-                    <select name="reason" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 outline-none">
-                        <option>Phishing Website</option>
-                        <option>Scam / Fraud</option>
-                        <option>Malware</option>
-                        <option>Gambling</option>
-                    </select>
-                </div>
-                <button type="submit" className="bg-red-600 text-white py-2.5 rounded-lg font-bold hover:bg-red-700 shadow-lg shadow-red-200 transition-all flex justify-center items-center gap-2">
-                    <ShieldBan size={18} /> ยืนยันการแบน
-                </button>
-            </form>
-         )}
-         {modalType === 'editUser' && selectedUser && (
-             <div className="flex flex-col gap-4">
-                <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-                    <p className="text-xs text-slate-500 uppercase font-bold mb-1">สมาชิกที่เลือก</p>
-                    <p className="text-slate-900 font-bold text-lg">{selectedUser.name}</p>
-                    <p className="text-slate-500">{selectedUser.email}</p>
-                </div>
-                <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-2">สถานะบัญชี</label>
-                    <select 
-                        value={selectedUser.status}
-                        onChange={(e) => setSelectedUser({...selectedUser, status: e.target.value})}
-                        className="w-full p-3 bg-white border border-slate-300 rounded-lg text-slate-900 outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                        <option value="Active">Active (ปกติ)</option>
-                        <option value="Banned">Banned (ระงับการใช้งาน)</option>
-                    </select>
-                </div>
-                <button onClick={saveUserStatus} className="mt-2 bg-blue-600 text-white py-2.5 rounded-lg font-bold hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all flex justify-center items-center gap-2">
-                    <Save size={18} /> บันทึกการเปลี่ยนแปลง
-                </button>
-             </div>
-         )}
-      </Modal>
+        <div className="p-8 max-w-7xl mx-auto pb-20">
+          {activeTab === "dashboard" && <DashboardOverview />}
+          {activeTab === "users" && <UsersSection />}
+          {activeTab === "reports" && <ReportsSection />}
+          {activeTab === "sites" && <SiteManagementSection />}
+          {activeTab === "knowledge" && <KnowledgeSection />}
+        </div>
+      </main>
     </div>
   );
 }
 
-// ----------------------------------------------------------------------
-// 📝 NEW COMPONENT: Knowledge Form
-// ----------------------------------------------------------------------
-function KnowledgeForm({ initialData, onSubmit, onCancel }) {
-    const [formData, setFormData] = useState({
-        id: initialData?.id || null,
-        title: initialData?.title || '',
-        category: initialData?.category || 'Basics',
-        content: initialData?.content || '',
-        image: initialData?.image || null
-    });
-    
-    const handleImageChange = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            const imageUrl = URL.createObjectURL(file);
-            setFormData({ ...formData, image: imageUrl });
+// ==========================================
+// 1. 📊 Dashboard Overview
+// ==========================================
+// ----------------------------------------------------
+// 📊 Sub-Component: ภาพรวมระบบ (Dashboard Overview)
+// ----------------------------------------------------
+function DashboardOverview() {
+  const [filterType, setFilterType] = useState("1Y");
+  const [selectedYear, setSelectedYear] = useState("2025");
+  
+  // State สำหรับ Live Map
+  const [attacks, setAttacks] = useState([]);
+
+  // --- 1. ข้อมูล Mock Data ---
+  const filterOptions = [
+    { id: "1D", label: "วันนี้" },
+    { id: "1W", label: "สัปดาห์" },
+    { id: "1M", label: "เดือน" },
+    { id: "1Y", label: "ปี" },
+    { id: "ALL", label: "ทั้งหมด" },
+  ];
+
+  const chartDatabase = {
+    "1D": [
+      { name: "00:00", threats: 5 }, { name: "04:00", threats: 2 },
+      { name: "08:00", threats: 15 }, { name: "12:00", threats: 45 },
+      { name: "16:00", threats: 30 }, { name: "20:00", threats: 20 },
+    ],
+    "1W": [
+      { name: "จ.", threats: 120 }, { name: "อ.", threats: 150 },
+      { name: "พ.", threats: 90 }, { name: "พฤ.", threats: 180 },
+      { name: "ศ.", threats: 300 }, { name: "ส.", threats: 200 },
+      { name: "อา.", threats: 250 },
+    ],
+    "1M": [
+      { name: "สัปดาห์ 1", threats: 800 }, { name: "สัปดาห์ 2", threats: 950 },
+      { name: "สัปดาห์ 3", threats: 700 }, { name: "สัปดาห์ 4", threats: 1200 },
+    ],
+    "1Y": {
+      2024: [
+        { name: "ม.ค.", threats: 1500 }, { name: "ก.พ.", threats: 1400 },
+        { name: "มี.ค.", threats: 1600 }, { name: "เม.ย.", threats: 1300 },
+        { name: "พ.ค.", threats: 2000 }, { name: "มิ.ย.", threats: 2100 },
+        { name: "ก.ค.", threats: 2200 }, { name: "ส.ค.", threats: 2500 },
+        { name: "ก.ย.", threats: 2300 }, { name: "ต.ค.", threats: 2800 },
+        { name: "พ.ย.", threats: 3000 }, { name: "ธ.ค.", threats: 3200 },
+      ],
+      2025: [
+        { name: "ม.ค.", threats: 3500 }, { name: "ก.พ.", threats: 3800 },
+        { name: "มี.ค.", threats: 4000 }, { name: "เม.ย.", threats: 3900 },
+        { name: "พ.ค.", threats: 4500 }, { name: "มิ.ย.", threats: 0 },
+      ],
+    },
+    ALL: [
+      { name: "2564", threats: 15000 }, { name: "2565", threats: 35000 },
+      { name: "2566", threats: 42000 }, { name: "2567", threats: 55000 },
+      { name: "2568", threats: 25000 },
+    ],
+  };
+
+  const threatTypeData = [
+    { name: "Phishing", value: 400, color: "#EF4444" }, 
+    { name: "Malware", value: 300, color: "#F59E0B" },  
+    { name: "DDoS", value: 300, color: "#8B5CF6" },     
+    { name: "Spyware", value: 200, color: "#10B981" },  
+  ];
+
+  const topCountries = [
+    { name: "United States", count: 1250, percent: 80, flag: "🇺🇸" },
+    { name: "China", count: 980, percent: 65, flag: "🇨🇳" },
+    { name: "Russia", count: 850, percent: 50, flag: "🇷🇺" },
+    { name: "Brazil", count: 600, percent: 35, flag: "🇧🇷" },
+    { name: "Thailand", count: 420, percent: 20, flag: "🇹🇭" },
+  ];
+
+  // พิกัดสำหรับ Live Map
+  const geoCoords = {
+    USA: [-95.7129, 37.0902],
+    China: [104.1954, 35.8617],
+    Russia: [105.3188, 61.5240],
+    Brazil: [-51.9253, -14.2350],
+    Thailand: [100.9925, 15.8700],
+    Australia: [133.7751, -25.2744],
+    Germany: [10.4515, 51.1657],
+    India: [78.9629, 20.5937],
+    Japan: [138.2529, 36.2048],
+    UK: [-3.4359, 55.3781],
+  };
+
+  // --- 2. Logic & Effects ---
+
+  // คำนวณข้อมูลกราฟ Area Chart
+  let currentData =
+    filterType === "1Y"
+      ? chartDatabase["1Y"][selectedYear] || chartDatabase["1Y"]["2025"]
+      : chartDatabase[filterType];
+  const totalThreats = currentData.reduce((acc, curr) => acc + curr.threats, 0);
+
+  // Effect: จำลองการโจมตี (Live Attack Simulation)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const keys = Object.keys(geoCoords);
+      const sourceKey = keys[Math.floor(Math.random() * keys.length)];
+      let targetKey = keys[Math.floor(Math.random() * keys.length)];
+      
+      // ป้องกัน Source กับ Target ซ้ำกัน
+      while (targetKey === sourceKey) {
+        targetKey = keys[Math.floor(Math.random() * keys.length)];
+      }
+
+      const newAttack = {
+        id: Date.now(),
+        from: geoCoords[sourceKey],
+        to: geoCoords[targetKey],
+        sourceName: sourceKey,
+        targetName: targetKey,
+      };
+
+      // เก็บไว้แค่ 7 เส้นล่าสุด เพื่อไม่ให้รก
+      setAttacks((prev) => [...prev.slice(-6), newAttack]);
+    }, 1000); // ความเร็วการยิง (1 วิ)
+
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="space-y-8 animate-fade-in">
+      {/* CSS Animation สำหรับเส้นเลเซอร์ */}
+      <style>{`
+        @keyframes dash {
+          to { stroke-dashoffset: 0; }
         }
-    };
+        .laser-line {
+          stroke-dasharray: 10;
+          stroke-dashoffset: 100;
+          animation: dash 1s linear forwards;
+        }
+      `}</style>
 
-    return (
-        <div className="flex flex-col gap-4">
-            <div className="w-full h-48 bg-slate-100 rounded-xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center relative overflow-hidden group hover:border-blue-400 transition-colors cursor-pointer">
-                {formData.image ? (
-                    <>
-                        <img src={formData.image} alt="Preview" className="w-full h-full object-cover" />
-                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            <span className="text-white font-bold flex items-center gap-2"><Edit size={16}/> เปลี่ยนรูปภาพ</span>
-                        </div>
-                    </>
-                ) : (
-                    <div className="text-slate-400 flex flex-col items-center">
-                        <UploadCloud size={32} className="mb-2" />
-                        <span className="text-sm font-medium">คลิกเพื่ออัปโหลดรูปภาพ</span>
-                    </div>
-                )}
-                <input type="file" accept="image/*" onChange={handleImageChange} className="absolute inset-0 opacity-0 cursor-pointer" />
-            </div>
-            <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">หัวข้อกระทู้ / บทความ</label>
-                <input type="text" value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} placeholder="ใส่ชื่อหัวข้อ..." className="w-full p-3 bg-white border border-slate-200 rounded-lg text-slate-900 outline-none focus:ring-2 focus:ring-blue-500" />
-            </div>
-            <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">หมวดหมู่</label>
-                <select value={formData.category} onChange={(e) => setFormData({...formData, category: e.target.value})} className="w-full p-3 bg-white border border-slate-200 rounded-lg text-slate-900 outline-none">
-                    <option>Basics</option>
-                    <option>Advanced</option>
-                    <option>Trends</option>
-                    <option>News</option>
-                </select>
-            </div>
-            <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">เนื้อหา</label>
-                <textarea rows="5" value={formData.content} onChange={(e) => setFormData({...formData, content: e.target.value})} placeholder="เขียนรายละเอียดเนื้อหาที่นี่..." className="w-full p-3 bg-white border border-slate-200 rounded-lg text-slate-900 outline-none focus:ring-2 focus:ring-blue-500"></textarea>
-            </div>
-            <button onClick={() => onSubmit(formData)} className="mt-2 bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all flex justify-center items-center gap-2">
-                <Save size={18} /> {initialData ? 'บันทึกการแก้ไข' : 'สร้างบทความ'}
-            </button>
+      {/* =========================================================
+          1. STATS CARDS
+         ========================================================= */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4 hover:shadow-md transition">
+          <div className="p-4 rounded-xl text-white shadow-lg bg-blue-500"><MousePointerClick size={24} /></div>
+          <div><p className="text-slate-500 text-sm font-medium">การเข้าชมวันนี้</p><h3 className="text-2xl font-bold text-slate-800">12,540</h3></div>
         </div>
-    )
-}
-
-// ----------------------------------------------------------------------
-// 🧭 SIDEBAR Helper (Updated with Logout & Home)
-// ----------------------------------------------------------------------
-function SidebarContent({ activeTab, setActiveTab }) {
-    const navigate = useNavigate(); // ✅ ใช้ Hook สำหรับเปลี่ยนหน้า
-
-    const MenuItem = ({ icon, label, id }) => (
-        <button onClick={() => setActiveTab(id)} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-medium ${activeTab === id ? 'bg-blue-50 text-blue-700 shadow-sm border border-blue-100' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'}`}>
-            <div className={activeTab === id ? 'text-blue-600' : 'text-slate-400'}>{icon}</div>
-            <span className="text-sm">{label}</span>
-        </button>
-    );
-
-    const handleLogout = () => {
-        // สามารถเพิ่ม Logic ล้าง Token ตรงนี้ได้
-        navigate('/login');
-    };
-
-    return (
-        <div className="flex flex-col flex-1 h-full">
-            <div className="h-4"></div>
-            {/* Main Menu */}
-            <nav className="flex-1 px-4 space-y-2 overflow-y-auto">
-                <MenuItem icon={<LayoutDashboard size={20} />} label="ภาพรวมระบบ" id="dashboard" />
-                <MenuItem icon={<BellRing size={20} />} label="จัดการแจ้งเบาะแส" id="reports" />
-                <MenuItem icon={<ShieldBan size={20} />} label="จัดการ Blacklist" id="blacklist" />
-                <MenuItem icon={<Users size={20} />} label="จัดการสมาชิก" id="users" />
-                <MenuItem icon={<BookOpen size={20} />} label="คลังความรู้" id="knowledge" />
-            </nav>
-
-            {/* ✅ Footer Menu (Back Home & Logout) */}
-            <div className="p-4 border-t border-slate-200 mt-auto space-y-2">
-                <button 
-                    onClick={() => navigate('/')}
-                    className="flex items-center w-full px-4 py-3 rounded-xl text-slate-600 hover:bg-slate-100 transition-colors"
-                >
-                    <Home className="w-5 h-5 mr-3 text-slate-400" />
-                    <span className="font-medium text-sm">กลับหน้าหลัก</span>
-                </button>
-
-                <button 
-                    onClick={handleLogout}
-                    className="flex items-center w-full px-4 py-3 rounded-xl text-red-600 hover:bg-red-50 transition-colors"
-                >
-                    <LogOut className="w-5 h-5 mr-3 text-red-400 group-hover:text-red-600" />
-                    <span className="font-medium text-sm">ออกจากระบบ</span>
-                </button>
-            </div>
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4 hover:shadow-md transition">
+          <div className="p-4 rounded-xl text-white shadow-lg bg-red-500"><Ban size={24} /></div>
+          <div>
+            <p className="text-slate-500 text-sm font-medium">ภัยคุกคาม ({filterType === "1Y" ? `ปี ${selectedYear}` : filterOptions.find((f) => f.id === filterType).label})</p>
+            <h3 className="text-2xl font-bold text-slate-800">{totalThreats.toLocaleString()}</h3>
+          </div>
         </div>
-    );
-}
-
-// ----------------------------------------------------------------------
-// 📊 DASHBOARD VIEW (UPDATED 🆕)
-// ----------------------------------------------------------------------
-function DashboardView() {
-    // 1. State สำหรับตัวเลือกช่วงเวลา
-    const [filter, setFilter] = useState('Week');
-
-    // 2. ข้อมูล Mock Data แยกตามช่วงเวลา
-    const chartData = {
-        Day: [
-            { name: '00:00', safe: 15, threat: 2 },
-            { name: '04:00', safe: 25, threat: 5 },
-            { name: '08:00', safe: 45, threat: 10 },
-            { name: '12:00', safe: 80, threat: 20 },
-            { name: '16:00', safe: 120, threat: 15 },
-            { name: '20:00', safe: 60, threat: 8 },
-            { name: '23:59', safe: 30, threat: 4 },
-        ],
-        Week: [
-            { name: 'Mon', safe: 150, threat: 20 },
-            { name: 'Tue', safe: 230, threat: 45 },
-            { name: 'Wed', safe: 180, threat: 30 },
-            { name: 'Thu', safe: 280, threat: 50 },
-            { name: 'Fri', safe: 350, threat: 80 },
-            { name: 'Sat', safe: 200, threat: 40 },
-            { name: 'Sun', safe: 120, threat: 15 },
-        ],
-        Month: [
-            { name: 'Week 1', safe: 800, threat: 120 },
-            { name: 'Week 2', safe: 950, threat: 150 },
-            { name: 'Week 3', safe: 1200, threat: 200 },
-            { name: 'Week 4', safe: 1100, threat: 180 },
-        ],
-        Year: [
-            { name: 'Jan', safe: 3000, threat: 400 },
-            { name: 'Mar', safe: 3500, threat: 500 },
-            { name: 'May', safe: 4200, threat: 300 },
-            { name: 'Jul', safe: 5000, threat: 700 },
-            { name: 'Sep', safe: 4800, threat: 600 },
-            { name: 'Nov', safe: 5500, threat: 800 },
-        ],
-        All: [
-            { name: '2021', safe: 15000, threat: 2000 },
-            { name: '2022', safe: 28000, threat: 4500 },
-            { name: '2023', safe: 42000, threat: 6000 },
-            { name: '2024', safe: 58000, threat: 8500 },
-        ]
-    };
-
-    // ข้อมูลแผนที่ (เหมือนเดิม)
-    const threatMapData = [
-        { name: "Thailand", coordinates: [100.9925, 15.8700] },
-        { name: "USA", coordinates: [-95.7129, 37.0902] },
-        { name: "Russia", coordinates: [105.3188, 61.5240] },
-        { name: "China", coordinates: [104.1954, 35.8617] },
-        { name: "Brazil", coordinates: [-51.9253, -14.2350] },
-    ];
-
-    return (
-        <div className="animate-fade-in space-y-6">
-            
-            {/* 1. Main Stats Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-                <StatCard title="Total Users" value="12,345" icon={<Users size={24} />} color="blue" diff="+12%" />
-                <StatCard title="Phishing Detected" value="843" icon={<ShieldAlert size={24} />} color="red" diff="+5.4%" />
-                <StatCard title="Reports Today" value="56" icon={<BellRing size={24} />} color="orange" diff="-2%" />
-                <StatCard title="Blacklisted URLs" value="1,024" icon={<ShieldBan size={24} />} color="purple" diff="+8%" />
-            </div>
-
-            {/* 2. Today's Scan Statistics */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl p-6 text-white shadow-lg shadow-blue-200 relative overflow-hidden">
-                    <div className="relative z-10">
-                        <div className="flex items-center gap-3 mb-2">
-                            <div className="p-2 bg-white/20 rounded-lg"><Activity size={24} /></div>
-                            <span className="font-bold opacity-90">วันนี้มีคนสแกน</span>
-                        </div>
-                        <p className="text-4xl font-extrabold mb-1">1,240 <span className="text-base font-normal opacity-80">ครั้ง</span></p>
-                        <p className="text-xs opacity-70">Total Scans Today</p>
-                    </div>
-                    {/* Decorative Circle */}
-                    <div className="absolute -bottom-8 -right-8 w-32 h-32 bg-white/10 rounded-full blur-2xl"></div>
-                </div>
-
-                <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex items-center justify-between group hover:border-green-200 transition-colors">
-                    <div>
-                        <p className="text-slate-500 font-bold mb-1">เว็บปลอดภัย</p>
-                        <p className="text-3xl font-extrabold text-green-600">1,100</p>
-                        <p className="text-xs text-slate-400 mt-1">Safe Websites Found</p>
-                    </div>
-                    <div className="p-3 bg-green-50 text-green-600 rounded-full group-hover:scale-110 transition-transform">
-                        <ShieldCheck size={32} />
-                    </div>
-                </div>
-
-                <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex items-center justify-between group hover:border-red-200 transition-colors">
-                    <div>
-                        <p className="text-slate-500 font-bold mb-1">เว็บมีความเสี่ยง</p>
-                        <p className="text-3xl font-extrabold text-red-600">140</p>
-                        <p className="text-xs text-slate-400 mt-1">Dangerous Websites Found</p>
-                    </div>
-                    <div className="p-3 bg-red-50 text-red-600 rounded-full animate-pulse">
-                        <AlertOctagon size={32} />
-                    </div>
-                </div>
-            </div>
-
-            {/* 3. Charts & Map Section */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                
-                {/* Area Chart with Time Filter */}
-                <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                    <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
-                         <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
-                            <Activity className="text-blue-600" size={20}/> สถิติการใช้งาน
-                         </h3>
-                         
-                         {/* 🕒 Time Filter Buttons */}
-                         <div className="flex bg-slate-100 p-1 rounded-xl">
-                            {['Day', 'Week', 'Month', 'Year', 'All'].map((range) => (
-                                <button
-                                    key={range}
-                                    onClick={() => setFilter(range)}
-                                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
-                                        filter === range 
-                                        ? 'bg-white text-blue-600 shadow-sm' 
-                                        : 'text-slate-500 hover:text-slate-700'
-                                    }`}
-                                >
-                                    {range === 'Day' ? 'วัน' : 
-                                     range === 'Week' ? 'สัปดาห์' : 
-                                     range === 'Month' ? 'เดือน' : 
-                                     range === 'Year' ? 'ปี' : 'ทั้งหมด'}
-                                </button>
-                            ))}
-                         </div>
-                    </div>
-
-                    <div className="h-[300px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={chartData[filter]}>
-                                <defs>
-                                    <linearGradient id="colorSafe" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#10B981" stopOpacity={0.2}/>
-                                        <stop offset="95%" stopColor="#10B981" stopOpacity={0}/>
-                                    </linearGradient>
-                                    <linearGradient id="colorThreat" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#EF4444" stopOpacity={0.2}/>
-                                        <stop offset="95%" stopColor="#EF4444" stopOpacity={0}/>
-                                    </linearGradient>
-                                </defs>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                                <XAxis 
-                                    dataKey="name" 
-                                    axisLine={false} 
-                                    tickLine={false} 
-                                    tick={{fill: '#94A3B8', fontSize: 12}} 
-                                    dy={10} 
-                                />
-                                <YAxis 
-                                    axisLine={false} 
-                                    tickLine={false} 
-                                    tick={{fill: '#94A3B8', fontSize: 12}} 
-                                />
-                                <Tooltip 
-                                    contentStyle={{
-                                        backgroundColor: '#fff', 
-                                        borderRadius: '12px', 
-                                        border: 'none', 
-                                        boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
-                                    }}
-                                />
-                                <Area 
-                                    type="monotone" 
-                                    dataKey="safe" 
-                                    stroke="#10B981" 
-                                    strokeWidth={3} 
-                                    fillOpacity={1} 
-                                    fill="url(#colorSafe)" 
-                                    name="ปลอดภัย (Safe)" 
-                                    animationDuration={1000}
-                                />
-                                <Area 
-                                    type="monotone" 
-                                    dataKey="threat" 
-                                    stroke="#EF4444" 
-                                    strokeWidth={3} 
-                                    fillOpacity={1} 
-                                    fill="url(#colorThreat)" 
-                                    name="อันตราย (Threat)" 
-                                    animationDuration={1000}
-                                />
-                            </AreaChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
-
-                {/* World Map (เหมือนเดิม) */}
-                <div className="bg-slate-800 p-6 rounded-2xl shadow-lg shadow-slate-300 overflow-hidden relative flex flex-col">
-                    <h3 className="font-bold text-white mb-4 flex items-center gap-2 relative z-10">
-                        <Globe className="text-blue-400" size={20}/> แหล่งที่มาภัยคุกคาม
-                    </h3>
-                    <div className="flex-1 flex items-center justify-center min-h-[300px]">
-                        <ComposableMap projection="geoMercator" projectionConfig={{ scale: 100 }}>
-                            <Geographies geography={geoUrl}>
-                                {({ geographies }) =>
-                                    geographies.map((geo) => (
-                                    <Geography key={geo.rsmKey} geography={geo} fill="#334155" stroke="#1e293b" strokeWidth={0.5} style={{ default: { outline: "none" }, hover: { fill: "#475569", outline: "none" }, pressed: { outline: "none" } }} />
-                                    ))
-                                }
-                            </Geographies>
-                            {threatMapData.map(({ name, coordinates }) => (
-                                <Marker key={name} coordinates={coordinates}>
-                                    <circle r={6} fill="#F87171" stroke="#fff" strokeWidth={2} className="animate-ping opacity-75" />
-                                    <circle r={4} fill="#EF4444" stroke="#fff" strokeWidth={1} />
-                                </Marker>
-                            ))}
-                        </ComposableMap>
-                    </div>
-                    {/* Legend Overlay */}
-                    <div className="absolute bottom-4 left-4 bg-slate-900/80 p-3 rounded-lg backdrop-blur-sm z-10 border border-slate-700">
-                         <div className="flex items-center gap-2 text-xs text-white">
-                             <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span> Threat Origin
-                         </div>
-                    </div>
-                </div>
-            </div>
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4 hover:shadow-md transition">
+          <div className="p-4 rounded-xl text-white shadow-lg bg-orange-500"><ShieldAlert size={24} /></div>
+          <div><p className="text-slate-500 text-sm font-medium">แจ้งเบาะแสใหม่</p><h3 className="text-2xl font-bold text-slate-800">15</h3></div>
         </div>
-    );
-}
-
-function StatCard({ title, value, icon, color, diff }) {
-    const colors = {
-        blue: "bg-blue-50 text-blue-600 border border-blue-100",
-        red: "bg-red-50 text-red-600 border border-red-100",
-        orange: "bg-orange-50 text-orange-600 border border-orange-100",
-        purple: "bg-purple-50 text-purple-600 border border-purple-100",
-    }
-    const isPositive = diff.startsWith('+');
-    return (
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all">
-            <div className="flex justify-between items-start mb-2">
-                <div className={`p-2.5 rounded-xl ${colors[color]}`}>{icon}</div>
-                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${isPositive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{diff}</span>
-            </div>
-            <p className="text-slate-500 text-sm font-medium">{title}</p>
-            <p className="text-2xl font-bold text-slate-900 mt-1">{value}</p>
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4 hover:shadow-md transition">
+          <div className="p-4 rounded-xl text-white shadow-lg bg-emerald-500"><BookOpen size={24} /></div>
+          <div><p className="text-slate-500 text-sm font-medium">บทความในคลัง</p><h3 className="text-2xl font-bold text-slate-800">45</h3></div>
         </div>
-    )
-}
+      </div>
 
-// ----------------------------------------------------------------------
-// 📋 SUB-VIEWS (Reports, Blacklist, Users, Knowledge)
-// ----------------------------------------------------------------------
-
-function ReportsView({ reports, updateStatus }) {
-    const [page, setPage] = useState(1);
-    const rowsPerPage = 5;
-    const paginatedData = reports.slice((page - 1) * rowsPerPage, page * rowsPerPage);
-
-    return (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden animate-fade-in-up">
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                <h3 className="font-bold text-lg text-slate-800">รายการแจ้งเบาะแสล่าสุด</h3>
+      {/* =========================================================
+          2. AREA CHART & LIVE MAP
+         ========================================================= */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* --- Area Chart (Left) --- */}
+        <div className="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+          <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+            <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+              <Activity size={20} className="text-red-500" /> แนวโน้มภัยคุกคามทางไซเบอร์
+            </h3>
+            <div className="flex items-center gap-2">
+              {filterType === "1Y" && (
                 <div className="relative">
-                    <Search className="absolute left-3 top-2.5 text-slate-400" size={16} />
-                    <input type="text" placeholder="ค้นหา..." className="pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all" />
+                  <select value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} className="appearance-none pl-3 pr-8 py-1.5 bg-blue-50 border border-blue-100 text-blue-700 rounded-lg text-xs font-bold outline-none cursor-pointer focus:ring-2 focus:ring-blue-200">
+                    <option value="2025">2568 (2025)</option>
+                    <option value="2024">2567 (2024)</option>
+                  </select>
+                  <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-blue-500 pointer-events-none" />
+                </div>
+              )}
+              <div className="flex bg-slate-100 p-1 rounded-lg">
+                {filterOptions.map((opt) => (
+                  <button key={opt.id} onClick={() => setFilterType(opt.id)} className={`px-3 py-1.5 rounded-md text-xs font-bold transition ${filterType === opt.id ? "bg-white text-red-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={currentData}>
+                <defs>
+                  <linearGradient id="colorThreats" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 12 }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 12 }} />
+                <Tooltip labelStyle={{ color: "#334155", fontWeight: "bold" }} itemStyle={{ color: "#ef4444" }} contentStyle={{ borderRadius: "12px", border: "none", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }} />
+                <Area type="monotone" dataKey="threats" name="จำนวนภัยคุกคาม" stroke="#ef4444" strokeWidth={3} fillOpacity={1} fill="url(#colorThreats)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* --- Live Cyber Threat Map (Right - Dark Theme) --- */}
+        <div className="bg-[#1e293b] p-6 rounded-2xl shadow-lg border border-slate-700 overflow-hidden flex flex-col text-white">
+            <div className="flex justify-between items-start mb-4">
+            <div>
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    <Globe size={20} className="text-blue-400 animate-pulse" /> Live Threat Map
+                </h3>
+                <p className="text-slate-400 text-xs">ระบบเฝ้าระวังแบบ Real-time</p>
+            </div>
+            <div className="flex gap-2 text-xs">
+                <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]"></div> Attack</div>
+                <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.8)]"></div> Target</div>
+            </div>
+            </div>
+
+            <div className="flex-1 w-full bg-[#0f172a] rounded-xl border border-slate-700 relative overflow-hidden">
+            <ComposableMap projectionConfig={{ scale: 170, rotation: [-10, 0, 0] }} className="w-full h-full">
+                {/* แผนที่ฐาน (สีมืด) */}
+                <Geographies geography={geoUrl}>
+                {({ geographies }) =>
+                    geographies.map((geo) => (
+                    <Geography
+                        key={geo.rsmKey}
+                        geography={geo}
+                        fill="#334155"
+                        stroke="#1e293b"
+                        strokeWidth={0.5}
+                        style={{
+                        default: { outline: "none" },
+                        hover: { fill: "#475569", outline: "none" },
+                        pressed: { outline: "none" },
+                        }}
+                    />
+                    ))
+                }
+                </Geographies>
+
+                {/* เส้นเลเซอร์ (Vectors) */}
+                {attacks.map((attack) => (
+                <Line
+                    key={attack.id}
+                    from={attack.from}
+                    to={attack.to}
+                    stroke="#ef4444"
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                    className="laser-line opacity-60"
+                />
+                ))}
+
+                {/* จุด Marker */}
+                {attacks.map((attack) => (
+                <g key={`marker-${attack.id}`}>
+                    <Marker coordinates={attack.from}>
+                        <circle r={2} fill="#ef4444" />
+                    </Marker>
+                    <Marker coordinates={attack.to}>
+                        <circle r={8} fill="#3b82f6" fillOpacity="0.3" className="animate-ping" />
+                        <circle r={3} fill="#3b82f6" stroke="#fff" strokeWidth={1} />
+                        {/* Tooltip ชื่อประเทศ */}
+                        <text textAnchor="middle" y={-10} className="fill-white text-[8px] font-bold opacity-80" style={{ textShadow: "0px 1px 2px black" }}>
+                            {attack.targetName}
+                        </text>
+                    </Marker>
+                </g>
+                ))}
+            </ComposableMap>
+
+            {/* ✅ Ticker Log (แถบวิ่งด้านล่าง) - ไม่บังแผนที่ */}
+            <div className="absolute bottom-0 left-0 right-0 bg-black/60 backdrop-blur-md py-2 px-4 border-t border-slate-700 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                    <span className="text-[10px] font-bold text-slate-300 tracking-wider uppercase">Live Feed</span>
+                </div>
+                
+                <div className="flex gap-4 overflow-hidden mask-linear-fade">
+                    {attacks.slice(-3).reverse().map((att) => (
+                    <div key={att.id} className="flex items-center gap-1 text-[10px] animate-fade-in-right">
+                        <span className="text-red-400 font-mono">{att.sourceName}</span>
+                        <span className="text-slate-500">➜</span>
+                        <span className="text-blue-400 font-mono">{att.targetName}</span>
+                    </div>
+                    ))}
                 </div>
             </div>
-            <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                    <thead className="bg-slate-50 text-slate-500 text-xs uppercase font-bold">
-                        <tr>
-                            <th className="p-4 w-16 text-center">#</th>
-                            <th className="p-4">URL / รายละเอียด</th>
-                            <th className="p-4">ประเภท</th>
-                            <th className="p-4">ผู้แจ้ง</th>
-                            <th className="p-4">สถานะ</th>
-                            <th className="p-4 text-right">จัดการ</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 text-sm">
-                        {paginatedData.map((r, index) => (
-                            <tr key={r.id} className="hover:bg-slate-50 transition-colors">
-                                <td className="p-4 text-center text-slate-400 font-mono">{(page - 1) * rowsPerPage + index + 1}</td>
-                                <td className="p-4">
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-slate-100 rounded-lg text-slate-500"><Globe size={16} /></div>
-                                        <div>
-                                            <p className="font-bold text-slate-800 truncate max-w-[200px]">{r.url}</p>
-                                            <p className="text-xs text-slate-400">{r.date}</p>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td className="p-4">
-                                    <span className={`px-2 py-1 rounded-lg text-xs font-bold border ${r.type === 'Phishing' ? 'bg-red-50 text-red-600 border-red-100' : 'bg-orange-50 text-orange-600 border-orange-100'}`}>
-                                        {r.type}
-                                    </span>
-                                </td>
-                                <td className="p-4 text-slate-600">{r.reporter}</td>
-                                <td className="p-4">
-                                    <span className={`flex items-center gap-1.5 text-xs font-bold ${r.status === 'Verified' ? 'text-green-600' : r.status === 'Rejected' ? 'text-red-500' : 'text-yellow-600'}`}>
-                                        <div className={`w-1.5 h-1.5 rounded-full ${r.status === 'Verified' ? 'bg-green-500' : r.status === 'Rejected' ? 'bg-red-500' : 'bg-yellow-500'}`}></div>
-                                        {r.status}
-                                    </span>
-                                </td>
-                                <td className="p-4 text-right">
-                                    <div className="flex justify-end gap-2">
-                                        {r.status === 'Pending' && (
-                                            <>
-                                                <button onClick={() => updateStatus(r.id, 'Verified')} className="p-1.5 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 border border-green-100"><CheckCircle size={16} /></button>
-                                                <button onClick={() => updateStatus(r.id, 'Rejected')} className="p-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 border border-red-100"><XCircle size={16} /></button>
-                                            </>
-                                        )}
-                                        <button className="p-1.5 bg-slate-100 text-slate-500 rounded-lg hover:bg-slate-200 border border-slate-200"><ExternalLink size={16} /></button>
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+
             </div>
-            <TablePagination currentPage={page} totalPages={Math.ceil(reports.length / rowsPerPage)} onPageChange={setPage} totalItems={reports.length} />
         </div>
-    );
+      </div>
+
+      {/* =========================================================
+          3. PIE CHART & TOP COUNTRIES
+         ========================================================= */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Pie Chart */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+          <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+            <ShieldAlert size={20} className="text-orange-500" /> สัดส่วนประเภทภัยคุกคาม
+          </h3>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={threatTypeData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
+                  {threatTypeData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend verticalAlign="bottom" height={36} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Top Countries List */}
+        <div className="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+          <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+            <Globe size={20} className="text-blue-500" /> 5 อันดับประเทศต้นทาง
+          </h3>
+          <div className="space-y-4">
+            {topCountries.map((item, index) => (
+              <div key={index} className="flex items-center gap-4 p-2 hover:bg-slate-50 rounded-lg transition">
+                <span className="text-2xl shadow-sm rounded-full">{item.flag}</span>
+                <div className="flex-1">
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="font-bold text-slate-700">{item.name}</span>
+                    <span className="text-slate-500 font-mono font-bold">{item.count.toLocaleString()} ครั้ง</span>
+                  </div>
+                  <div className="w-full bg-slate-100 rounded-full h-2">
+                    <div className="bg-blue-500 h-2 rounded-full transition-all duration-1000 ease-out" style={{ width: `${item.percent}%` }}></div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
-function BlacklistView({ blacklist, deleteItem, openAddModal }) {
-    const [page, setPage] = useState(1);
-    const rowsPerPage = 5;
-    const paginatedData = blacklist.slice((page - 1) * rowsPerPage, page * rowsPerPage);
+// ==========================================
+// 2. 👥 Users Section
+// ==========================================
+function UsersSection() {
+  const [users, setUsers] = useState([
+    {
+      id: 1,
+      name: "สมชาย ใจดี",
+      email: "somchai@gmail.com",
+      role: "MEMBER",
+      status: "ACTIVE",
+    },
+    {
+      id: 2,
+      name: "ผู้ดูแลระบบ",
+      email: "admin@phishwise.com",
+      role: "ADMIN",
+      status: "ACTIVE",
+    },
+    {
+      id: 3,
+      name: "แฮกเกอร์คุง",
+      email: "hack@darkweb.com",
+      role: "MEMBER",
+      status: "BANNED",
+    },
+    {
+      id: 4,
+      name: "ลิซ่า แบล็กพิงก์",
+      email: "lisa@yg.com",
+      role: "MEMBER",
+      status: "ACTIVE",
+    },
+    {
+      id: 5,
+      name: "จอห์น โด",
+      email: "john@test.com",
+      role: "MEMBER",
+      status: "ACTIVE",
+    },
+    {
+      id: 6,
+      name: "เจน สมิธ",
+      email: "jane@test.com",
+      role: "MEMBER",
+      status: "ACTIVE",
+    },
+  ]);
+  const [search, setSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const rowsPerPage = 5;
 
-    return (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden animate-fade-in-up">
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+  const filteredUsers = users.filter(
+    (u) =>
+      u.name.toLowerCase().includes(search.toLowerCase()) ||
+      u.email.toLowerCase().includes(search.toLowerCase()),
+  );
+  const paginatedUsers = filteredUsers.slice(
+    (currentPage - 1) * rowsPerPage,
+    currentPage * rowsPerPage,
+  );
+
+  const toggleBan = (id) =>
+    setUsers(
+      users.map((u) =>
+        u.id === id
+          ? { ...u, status: u.status === "ACTIVE" ? "BANNED" : "ACTIVE" }
+          : u,
+      ),
+    );
+  const deleteUser = (id) =>
+    window.confirm("ยืนยันการลบผู้ใช้รายนี้?") &&
+    setUsers(users.filter((u) => u.id !== id));
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex justify-between items-center">
+        <div className="flex gap-2 w-full max-w-md">
+          <div className="relative w-full">
+            <input
+              type="text"
+              placeholder="ค้นหาชื่อหรืออีเมล..."
+              className="w-full pl-4 pr-10 py-2.5 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition shadow-sm"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <Search
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
+              size={20}
+            />
+          </div>
+          <button className="bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition shadow-sm">
+            ค้นหา
+          </button>
+        </div>
+      </div>
+
+<div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <table className="w-full text-left">
+          <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs uppercase">
+            <tr>
+              {/* ✅ 1. เพิ่มหัวตาราง # */}
+              <th className="p-4 w-16 text-center font-bold">#</th>
+              <th className="p-4 font-bold">ชื่อผู้ใช้</th>
+              <th className="p-4 font-bold">สถานะ</th>
+              <th className="p-4 font-bold">บทบาท</th>
+              <th className="p-4 font-bold text-right">จัดการ</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 text-sm">
+            {/* ✅ 2. เพิ่ม index ใน .map */}
+            {paginatedUsers.map((u, index) => {
+              const statusInfo = getStatusBadge(u.status);
+              
+              // ✅ 3. สูตรคำนวณลำดับ
+              const rowNumber = (currentPage - 1) * rowsPerPage + index + 1;
+
+              return (
+                <tr key={u.id} className="hover:bg-slate-50 transition-colors">
+                  {/* ✅ 4. เพิ่ม Cell แสดงตัวเลขลำดับ */}
+                  <td className="p-4 text-center text-slate-400 font-mono">
+                    {rowNumber}
+                  </td>
+
+                  <td className="p-4">
+                    <div className="font-bold text-slate-800">{u.name}</div>
+                    <div className="text-xs text-slate-500">{u.email}</div>
+                  </td>
+                  <td className="p-4">
+                    <span
+                      className={`px-2.5 py-1 rounded-full text-xs font-bold border ${statusInfo.className}`}
+                    >
+                      {statusInfo.label}
+                    </span>
+                  </td>
+                  <td className="p-4 text-slate-600">{getRoleName(u.role)}</td>
+                  <td className="p-4 text-right flex justify-end gap-2">
+                    <button
+                      onClick={() => toggleBan(u.id)}
+                      className={`p-2 rounded-lg transition border ${u.status === "ACTIVE" ? "bg-orange-50 text-orange-600 hover:bg-orange-100 border-orange-100" : "bg-green-50 text-green-600 hover:bg-green-100 border-green-100"}`}
+                    >
+                      {u.status === "ACTIVE" ? (
+                        <Ban size={16} />
+                      ) : (
+                        <CheckCircle size={16} />
+                      )}
+                    </button>
+                    <button
+                      onClick={() => deleteUser(u.id)}
+                      className="p-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg border border-red-100 transition"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        <TablePagination
+          currentPage={currentPage}
+          totalPages={Math.ceil(filteredUsers.length / rowsPerPage)}
+          onPageChange={setCurrentPage}
+          totalItems={filteredUsers.length}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
+// 3. 🚨 Reports Section
+// ==========================================
+function ReportsSection() {
+  const [reports, setReports] = useState([
+    {
+      id: 1,
+      url: "http://scb-verify.com",
+      type: "Phishing",
+      reporter: "สมชาย",
+      status: "PENDING",
+    },
+    {
+      id: 2,
+      url: "http://free-money.net",
+      type: "Scam",
+      reporter: "ลิซ่า",
+      status: "RESOLVED",
+    },
+    {
+      id: 3,
+      url: "http://virus-dl.com",
+      type: "Malware",
+      reporter: "จอห์น",
+      status: "REJECTED",
+    },
+    {
+      id: 4,
+      url: "http://fake-login.com",
+      type: "Phishing",
+      reporter: "สมาชิก 1",
+      status: "PENDING",
+    },
+    {
+      id: 5,
+      url: "http://win-iphone.net",
+      type: "Scam",
+      reporter: "สมาชิก 2",
+      status: "PENDING",
+    },
+    {
+      id: 6,
+      url: "http://bet-online.com",
+      type: "Gambling",
+      reporter: "สมาชิก 3",
+      status: "RESOLVED",
+    },
+  ]);
+  const [search, setSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const rowsPerPage = 5;
+
+  const filteredReports = reports.filter(
+    (r) =>
+      r.url.toLowerCase().includes(search.toLowerCase()) ||
+      r.reporter.toLowerCase().includes(search.toLowerCase()),
+  );
+  const paginatedReports = filteredReports.slice(
+    (currentPage - 1) * rowsPerPage,
+    currentPage * rowsPerPage,
+  );
+
+  const updateStatus = (id, newStatus) =>
+    setReports(
+      reports.map((r) => (r.id === id ? { ...r, status: newStatus } : r)),
+    );
+
+  // แปลงประเภทภัยคุกคาม
+  const getReportType = (type) => {
+    const types = {
+      Phishing: "ฟิชชิ่ง/เว็บปลอม",
+      Scam: "หลอกลวง",
+      Malware: "มัลแวร์",
+      Gambling: "การพนัน",
+    };
+    return types[type] || type;
+  };
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex justify-between items-center">
+        <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+          <ShieldAlert className="text-orange-500" /> รายการแจ้งเบาะแสล่าสุด
+        </h3>
+        <div className="flex gap-2 w-full max-w-sm">
+          <div className="relative w-full">
+            <input
+              type="text"
+              placeholder="ค้นหา URL..."
+              className="w-full pl-4 pr-10 py-2 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <Search
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
+              size={18}
+            />
+          </div>
+          <button className="bg-blue-600 text-white px-3 py-2 rounded-xl hover:bg-blue-700 transition text-sm">
+            ค้นหา
+          </button>
+        </div>
+      </div>
+
+<div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <table className="w-full text-left">
+          <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs uppercase">
+            <tr>
+              {/* ✅ 1. เพิ่มหัวตาราง # */}
+              <th className="p-4 w-16 text-center">#</th>
+              <th className="p-4">URL</th>
+              <th className="p-4">ประเภท</th>
+              <th className="p-4">ผู้แจ้ง</th>
+              <th className="p-4">สถานะ</th>
+              <th className="p-4 text-right">ตรวจสอบ</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 text-sm">
+            {/* ✅ 2. เพิ่ม index ใน .map */}
+            {paginatedReports.map((r, index) => {
+              const statusInfo = getStatusBadge(r.status);
+              
+              // ✅ 3. สูตรคำนวณลำดับ
+              const rowNumber = (currentPage - 1) * rowsPerPage + index + 1;
+
+              return (
+                <tr key={r.id} className="hover:bg-slate-50 transition-colors">
+                  {/* ✅ 4. เพิ่ม Cell แสดงตัวเลขลำดับ */}
+                  <td className="p-4 text-center text-slate-400 font-mono">
+                    {rowNumber}
+                  </td>
+
+                  <td className="p-4 font-bold text-blue-600 break-all">
+                    {r.url}
+                  </td>
+                  <td className="p-4 text-slate-600">
+                    {getReportType(r.type)}
+                  </td>
+                  <td className="p-4 text-slate-500">{r.reporter}</td>
+                  <td className="p-4">
+                    <span
+                      className={`px-2.5 py-1 rounded-full text-xs font-bold border ${statusInfo.className}`}
+                    >
+                      {statusInfo.label}
+                    </span>
+                  </td>
+                  <td className="p-4 text-right">
+                    {r.status === "PENDING" ? (
+                      <div className="flex justify-end gap-2">
+                        <button
+                          onClick={() => updateStatus(r.id, "RESOLVED")}
+                          className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs hover:bg-green-700 shadow-sm transition"
+                        >
+                          <CheckCircle size={14} /> ยืนยัน
+                        </button>
+                        <button
+                          onClick={() => updateStatus(r.id, "REJECTED")}
+                          className="flex items-center gap-1 px-3 py-1.5 bg-white border border-slate-200 text-slate-600 rounded-lg text-xs hover:bg-slate-50 transition"
+                        >
+                          <XCircle size={14} /> ปฏิเสธ
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-slate-400 italic">
+                        ดำเนินการแล้ว
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        <TablePagination
+          currentPage={currentPage}
+          totalPages={Math.ceil(filteredReports.length / rowsPerPage)}
+          onPageChange={setCurrentPage}
+          totalItems={filteredReports.length}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
+// 4. 🔥 Site Management
+// ==========================================
+function SiteManagementSection() {
+  // 1. Mock Data
+  const [sites, setSites] = useState([
+    { id: 1, url: "example-phish.com", status: "DANGEROUS", type: "Phishing" },
+    { id: 2, url: "google.com", status: "SAFE", type: "Official" },
+    { id: 3, url: "malware-load.net", status: "DANGEROUS", type: "Malware" },
+    { id: 4, url: "scam-shop.online", status: "DANGEROUS", type: "Scam" },
+    { id: 5, url: "facebook.com", status: "SAFE", type: "Official" },
+  ]);
+
+  // 2. States
+  const [filter, setFilter] = useState("ALL");
+  const [search, setSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const rowsPerPage = 5;
+
+  // ✅ State สำหรับควบคุม Modal
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+
+  // ✅ State สำหรับฟอร์ม
+  const [newSiteUrl, setNewSiteUrl] = useState("");
+  const [newSiteType, setNewSiteType] = useState("Phishing");
+  const [newSiteStatus, setNewSiteStatus] = useState("DANGEROUS");
+
+  // 3. Handlers
+  const handleAddSite = () => {
+    if (!newSiteUrl.trim()) return;
+
+    // บันทึกข้อมูล
+    setSites([
+      {
+        id: Date.now(),
+        url: newSiteUrl,
+        status: newSiteStatus,
+        type: newSiteType,
+      },
+      ...sites,
+    ]);
+
+    // Reset & Close Modal
+    setNewSiteUrl("");
+    setNewSiteType("Phishing");
+    setNewSiteStatus("DANGEROUS");
+    setIsAddModalOpen(false); // ปิด Modal
+  };
+
+  const handleDeleteSite = (id) => {
+    if (window.confirm("ยืนยันการลบโดเมนนี้?")) {
+      setSites(sites.filter((s) => s.id !== id));
+    }
+  };
+
+  const getStatusBadgeLocal = (status) => {
+    return status === "SAFE"
+      ? { label: "ปลอดภัย", className: "bg-green-100 text-green-700 border-green-200" }
+      : { label: "อันตราย", className: "bg-red-100 text-red-700 border-red-200" };
+  };
+
+  // 4. Logic การกรอง
+  const filteredSites = sites.filter((s) => {
+    const matchesFilter = filter === "ALL" || s.status === filter;
+    const matchesSearch = s.url.toLowerCase().includes(search.toLowerCase());
+    return matchesFilter && matchesSearch;
+  });
+
+  const paginatedSites = filteredSites.slice(
+    (currentPage - 1) * rowsPerPage,
+    currentPage * rowsPerPage
+  );
+
+  return (
+    <div className="animate-fade-in relative">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold text-slate-800">จัดการ Blacklist / Whitelist</h1>
+        
+        {/* ✅ ปุ่มเปิด Modal (ย้ายมาขวาบน ดูดีกว่า) */}
+        <button
+          onClick={() => setIsAddModalOpen(true)}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 shadow-sm transition"
+        >
+          <Plus size={20} /> เพิ่มเว็บไซต์
+        </button>
+      </div>
+
+      {/* --- Tools Bar (Filter & Search) --- */}
+      <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
+        <div className="flex gap-2 p-1 bg-slate-100 rounded-lg">
+          {["ALL", "DANGEROUS", "SAFE"].map((f) => (
+            <button
+              key={f}
+              onClick={() => { setFilter(f); setCurrentPage(1); }}
+              className={`px-4 py-2 rounded-md text-sm font-bold transition ${
+                filter === f
+                  ? "bg-white text-slate-800 shadow-sm"
+                  : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              {f === "ALL" ? "ทั้งหมด" : f === "DANGEROUS" ? "อันตราย" : "ปลอดภัย"}
+            </button>
+          ))}
+        </div>
+        <div className="relative w-full md:w-64">
+          <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
+          <input
+            type="text"
+            placeholder="ค้นหา URL..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+      </div>
+
+      {/* --- Table Section --- */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <table className="w-full text-left">
+          <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs uppercase">
+            <tr>
+              <th className="p-4 w-16 text-center">#</th>
+              <th className="p-4">URL</th>
+              <th className="p-4">สถานะ</th>
+              <th className="p-4">ประเภท</th>
+              <th className="p-4 text-right">จัดการ</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 text-sm">
+            {paginatedSites.map((site, index) => {
+              const statusInfo = getStatusBadgeLocal(site.status);
+              const rowNumber = (currentPage - 1) * rowsPerPage + index + 1;
+
+              return (
+                <tr key={site.id} className="hover:bg-slate-50 transition">
+                  <td className="p-4 text-center text-slate-400 font-mono">{rowNumber}</td>
+                  <td className="p-4 font-bold text-slate-800">{site.url}</td>
+                  <td className="p-4">
+                    <span className={`px-2 py-1 rounded-full text-xs font-bold border ${statusInfo.className}`}>
+                      {statusInfo.label}
+                    </span>
+                  </td>
+                  <td className="p-4 text-slate-600">{site.type}</td>
+                  <td className="p-4 text-right">
+                    <button
+                      onClick={() => handleDeleteSite(site.id)}
+                      className="text-slate-400 hover:text-red-600 p-2 hover:bg-red-50 rounded-lg transition"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        <TablePagination
+          currentPage={currentPage}
+          totalPages={Math.ceil(filteredSites.length / rowsPerPage)}
+          onPageChange={setCurrentPage}
+          totalItems={filteredSites.length}
+        />
+      </div>
+
+      {/* =========================================================
+          🟢 MODAL ZONE : ส่วนหน้าต่างเด้งเพิ่มข้อมูล
+         ========================================================= */}
+      {isAddModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
+                <Globe size={20} className="text-blue-600"/> เพิ่มเว็บไซต์ใหม่
+              </h3>
+              <button 
+                onClick={() => setIsAddModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 hover:bg-slate-200 p-1 rounded-full transition"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-4">
+              {/* URL Input */}
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1">URL เว็บไซต์</label>
+                <input
+                  type="text"
+                  placeholder="เช่น example-phish.com"
+                  value={newSiteUrl}
+                  onChange={(e) => setNewSiteUrl(e.target.value)}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+                  autoFocus
+                />
+              </div>
+
+              {/* Type Select */}
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1">ประเภทภัยคุกคาม</label>
+                <select
+                  value={newSiteType}
+                  onChange={(e) => setNewSiteType(e.target.value)}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                >
+                  <option value="Phishing">Phishing (เว็บปลอม)</option>
+                  <option value="Malware">Malware (มัลแวร์)</option>
+                  <option value="Scam">Scam (หลอกลวง)</option>
+                  <option value="Gambling">Gambling (พนัน)</option>
+                  <option value="Official">Official (เว็บทางการ)</option>
+                </select>
+              </div>
+
+              {/* Status Select */}
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1">ระดับความเสี่ยง</label>
+                <div className="flex gap-2">
+                    <button
+                        onClick={() => setNewSiteStatus("DANGEROUS")}
+                        className={`flex-1 py-2 rounded-lg border font-bold text-sm transition ${
+                            newSiteStatus === "DANGEROUS" 
+                            ? "bg-red-50 border-red-500 text-red-600" 
+                            : "bg-white border-slate-200 text-slate-400 hover:bg-slate-50"
+                        }`}
+                    >
+                        อันตราย
+                    </button>
+                    <button
+                        onClick={() => setNewSiteStatus("SAFE")}
+                        className={`flex-1 py-2 rounded-lg border font-bold text-sm transition ${
+                            newSiteStatus === "SAFE" 
+                            ? "bg-green-50 border-green-500 text-green-600" 
+                            : "bg-white border-slate-200 text-slate-400 hover:bg-slate-50"
+                        }`}
+                    >
+                        ปลอดภัย
+                    </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex gap-3 justify-end">
+              <button
+                onClick={() => setIsAddModalOpen(false)}
+                className="px-4 py-2 text-slate-600 font-bold hover:bg-slate-200 rounded-lg transition"
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={handleAddSite}
+                disabled={!newSiteUrl.trim()}
+                className="px-6 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition"
+              >
+                บันทึกข้อมูล
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ==========================================
+// 5. 📚 Knowledge Section (อัปเดตเพิ่มหมวดหมู่ Malware)
+// ==========================================
+function KnowledgeSection() {
+  // ✅ 1. เพิ่ม field 'image' ในข้อมูลตัวอย่าง
+  const [knowledgeList, setKnowledgeList] = useState([
+    {
+      id: 1,
+      title: "วิธีสังเกต Phishing Email",
+      category: "Phishing",
+      views: 1200,
+      status: "Published",
+      image: "https://images.unsplash.com/photo-1563986768609-322da13575f3?auto=format&fit=crop&q=80&w=200"
+    },
+    {
+      id: 2,
+      title: "รหัสผ่านที่ดีควรเป็นอย่างไร",
+      category: "Security",
+      views: 850,
+      status: "Published",
+      image: "https://images.unsplash.com/photo-1555949963-ff9fe0c870eb?auto=format&fit=crop&q=80&w=200"
+    },
+    {
+      id: 3,
+      title: "ระวัง! SMS หลอกลวง",
+      category: "Scams",
+      views: 500,
+      status: "Draft",
+      image: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&q=80&w=200"
+    },
+    {
+      id: 4,
+      title: "การป้องกัน Ransomware",
+      category: "Malware",
+      views: 300,
+      status: "Published",
+      image: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&q=80&w=200"
+    },
+    {
+      id: 5,
+      title: "Social Engineering คืออะไร",
+      category: "Phishing",
+      views: 1500,
+      status: "Published",
+      image: "https://images.unsplash.com/photo-1551836022-d5d88e9218df?auto=format&fit=crop&q=80&w=200"
+    },
+    {
+      id: 6,
+      title: "ความปลอดภัยของ WiFi สาธารณะ",
+      category: "Security",
+      views: 600,
+      status: "Draft",
+      image: "https://images.unsplash.com/photo-1563013544-824ae1b704d3?auto=format&fit=crop&q=80&w=200"
+    },
+  ]);
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState(null);
+  
+  // ✅ 2. เพิ่ม image: "" ใน state ของ Form
+  const [formData, setFormData] = useState({
+    title: "",
+    category: "",
+    status: "Published",
+    image: "", 
+  });
+
+  const [search, setSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const rowsPerPage = 5;
+
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case "Published":
+        return { label: "เผยแพร่แล้ว", className: "bg-blue-100 text-blue-700 border-blue-200" };
+      case "Draft":
+        return { label: "ฉบับร่าง", className: "bg-slate-200 text-slate-600 border-slate-300" };
+      default:
+        return { label: status, className: "bg-slate-100 text-slate-600" };
+    }
+  };
+
+  const filteredList = knowledgeList.filter((k) =>
+    k.title.toLowerCase().includes(search.toLowerCase()),
+  );
+  const paginatedList = filteredList.slice(
+    (currentPage - 1) * rowsPerPage,
+    currentPage * rowsPerPage,
+  );
+
+  const openModal = (item = null) => {
+    setEditingItem(item);
+    setFormData(
+      // ✅ เพิ่ม image ในการ reset หรือ load ข้อมูล
+      item ? { ...item } : { title: "", category: "", status: "Published", image: "" },
+    );
+    setIsModalOpen(true);
+  };
+
+  const handleSave = () => {
+    // ถ้าไม่ได้ใส่รูป ให้ใส่รูป Default
+    const finalData = {
+        ...formData,
+        image: formData.image || "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&q=80&w=200"
+    };
+
+    if (editingItem)
+      setKnowledgeList(
+        knowledgeList.map((item) =>
+          item.id === editingItem.id ? { ...item, ...finalData } : item,
+        ),
+      );
+    else
+      setKnowledgeList([
+        ...knowledgeList,
+        { id: Date.now(), ...finalData, views: 0 },
+      ]);
+    setIsModalOpen(false);
+  };
+
+  const handleDelete = (id) =>
+    window.confirm("ยืนยันการลบบทความนี้?") &&
+    setKnowledgeList(knowledgeList.filter((k) => k.id !== id));
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      {/* Header Section (เหมือนเดิม) */}
+      <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+        <h3 className="text-lg font-bold text-slate-800">คลังความรู้</h3>
+        <div className="flex gap-2 w-full md:w-auto">
+          <div className="relative w-full md:w-64">
+            <input
+              type="text"
+              placeholder="ค้นหาบทความ..."
+              className="w-full pl-4 pr-10 py-2 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+          </div>
+          <button className="bg-slate-800 text-white px-3 py-2 rounded-xl hover:bg-slate-900 transition text-sm">
+            ค้นหา
+          </button>
+          <button
+            onClick={() => openModal()}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-bold shadow-md transition whitespace-nowrap"
+          >
+            <Plus size={18} /> เขียนใหม่
+          </button>
+        </div>
+      </div>
+
+      {/* Table Section */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <table className="w-full text-left">
+          <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs uppercase">
+            <tr>
+              <th className="p-4 w-16 text-center">#</th>
+              <th className="p-4">หัวข้อ</th>
+              <th className="p-4">หมวดหมู่</th>
+              <th className="p-4">ยอดวิว</th>
+              <th className="p-4">สถานะ</th>
+              <th className="p-4 text-right">จัดการ</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 text-sm">
+            {paginatedList.map((item, index) => {
+              const statusInfo = getStatusBadge(item.status);
+              const rowNumber = (currentPage - 1) * rowsPerPage + index + 1;
+
+              return (
+                <tr key={item.id} className="hover:bg-slate-50 transition">
+                  <td className="p-4 text-center text-slate-400 font-mono">
+                    {rowNumber}
+                  </td>
+                  
+                  {/* ✅ 3. ปรับ Column หัวข้อให้แสดงรูปภาพคู่กัน */}
+                  <td className="p-4">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg overflow-hidden bg-slate-100 shrink-0 border border-slate-200">
+                            {item.image ? (
+                                <img src={item.image} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                                <div className="w-full h-full flex items-center justify-center text-slate-400">
+                                    <ImageIcon size={16} />
+                                </div>
+                            )}
+                        </div>
+                        <span className="font-bold text-slate-800 line-clamp-1">{item.title}</span>
+                    </div>
+                  </td>
+
+                  <td className="p-4 text-slate-600">{item.category}</td>
+                  <td className="p-4 text-slate-500 flex items-center gap-1">
+                    <Eye size={14} /> {item.views.toLocaleString()}
+                  </td>
+                  <td className="p-4">
+                    <span className={`px-2 py-1 rounded-full text-xs font-bold border ${statusInfo.className}`}>
+                      {statusInfo.label}
+                    </span>
+                  </td>
+                  <td className="p-4 text-right flex justify-end gap-2">
+                    <button
+                      onClick={() => openModal(item)}
+                      className="p-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 border border-orange-100 transition"
+                    >
+                      <Edit size={16} />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(item.id)}
+                      className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 border border-red-100 transition"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        {/* Pagination component (สมมติว่ามีอยู่แล้ว) */}
+        {/* <TablePagination ... /> */}
+      </div>
+
+      {/* Modal Section */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm animate-fade-in p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold text-slate-800">
+                {editingItem ? "แก้ไขบทความ" : "สร้างบทความใหม่"}
+              </h3>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="text-slate-400 hover:text-red-500"
+              >
+                <X size={24} />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              
+              {/* ✅ 4. เพิ่มส่วนจัดการรูปภาพใน Modal */}
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">รูปภาพปก</label>
+                
+                {/* Preview Image Box */}
+                <div className="w-full h-40 bg-slate-100 rounded-xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center overflow-hidden mb-3 relative group">
+                    {formData.image ? (
+                        <>
+                            <img src={formData.image} alt="Preview" className="w-full h-full object-cover" />
+                            {/* ปุ่มกดลบรูป (Optional) */}
+                            <button 
+                                onClick={() => setFormData({...formData, image: ""})}
+                                className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition"
+                            >
+                                <X size={14} />
+                            </button>
+                        </>
+                    ) : (
+                        <div className="text-slate-400 text-center">
+                            <ImageIcon size={32} className="mx-auto mb-2 opacity-50" />
+                            <span className="text-xs">แสดงตัวอย่างรูปภาพ</span>
+                        </div>
+                    )}
+                </div>
+
+                {/* Input URL */}
+                <input
+                  type="text"
+                  placeholder="วางลิงก์รูปภาพ (URL) ที่นี่..."
+                  value={formData.image}
+                  onChange={(e) => setFormData({ ...formData, image: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                />
+                <p className="text-xs text-slate-400 mt-1">
+                    *ในระบบจริงจะใช้ปุ่ม Upload ไฟล์ (ตอนนี้ใช้ URL แทน)
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1">
+                  หัวข้อบทความ
+                </label>
+                <input
+                  type="text"
+                  value={formData.title}
+                  onChange={(e) =>
+                    setFormData({ ...formData, title: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                    <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
-                        <ShieldBan className="text-red-500" /> Blacklist URLs
-                    </h3>
+                    <label className="block text-sm font-bold text-slate-700 mb-1">
+                    หมวดหมู่
+                    </label>
+                    <select
+                    value={formData.category}
+                    onChange={(e) =>
+                        setFormData({ ...formData, category: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                    <option value="">เลือกหมวดหมู่...</option>
+                    <option value="Phishing">Phishing</option>
+                    <option value="Scams">Scams</option>
+                    <option value="Malware">Malware</option>
+                    <option value="Security">Security</option>
+                    </select>
                 </div>
-                <button onClick={openAddModal} className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-bold shadow-lg shadow-red-200 transition-all text-sm">
-                    <Plus size={16} /> เพิ่ม Blacklist
-                </button>
-            </div>
-            <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                    <thead className="bg-slate-50 text-slate-500 text-xs uppercase font-bold">
-                        <tr>
-                            <th className="p-4 w-16 text-center">#</th>
-                            <th className="p-4">Malicious URL</th>
-                            <th className="p-4">Reason</th>
-                            <th className="p-4">Added By</th>
-                            <th className="p-4">Date</th>
-                            <th className="p-4 text-right">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                        {paginatedData.map((item, index) => (
-                            <tr key={item.id} className="hover:bg-slate-50 transition-colors">
-                                <td className="p-4 text-center text-slate-400 font-mono">{(page - 1) * rowsPerPage + index + 1}</td>
-                                <td className="p-4 font-mono text-red-600 font-bold">{item.url}</td>
-                                <td className="p-4">
-                                    <span className="bg-red-50 text-red-600 px-2 py-1 rounded border border-red-100 text-xs font-bold">
-                                        {item.reason}
-                                    </span>
-                                </td>
-                                <td className="p-4 text-slate-600">{item.admin}</td>
-                                <td className="p-4 text-slate-500 text-xs">{item.date}</td>
-                                <td className="p-4 text-right">
-                                    <button onClick={() => deleteItem(item.id)} className="p-2 bg-slate-100 text-slate-500 hover:bg-green-50 hover:text-green-600 rounded-lg transition-colors border border-slate-200 hover:border-green-200" title="ปลดแบน">
-                                        <Ban size={16} />
-                                    </button>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-            <TablePagination currentPage={page} totalPages={Math.ceil(blacklist.length / rowsPerPage)} onPageChange={setPage} totalItems={blacklist.length} />
-        </div>
-    );
-}
-
-function UsersView({ users, deleteUser, openEditModal }) {
-    const [page, setPage] = useState(1);
-    const rowsPerPage = 5;
-    const paginatedData = users.slice((page - 1) * rowsPerPage, page * rowsPerPage);
-
-    return (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden animate-fade-in-up">
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                <h3 className="font-bold text-lg text-slate-800">จัดการสมาชิกทั้งหมด</h3>
-                <div className="text-sm text-slate-500">Total: {users.length} Users</div>
-            </div>
-            <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                    <thead className="bg-slate-50 text-slate-500 text-xs uppercase font-bold">
-                        <tr>
-                            <th className="p-4 w-16 text-center">#</th>
-                            <th className="p-4">User Info</th>
-                            <th className="p-4">Role</th>
-                            <th className="p-4">Status</th>
-                            <th className="p-4 text-right">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                        {paginatedData.map((u, index) => (
-                            <tr key={u.id} className="hover:bg-slate-50 transition-colors">
-                                <td className="p-4 text-center text-slate-400 font-mono">{(page - 1) * rowsPerPage + index + 1}</td>
-                                <td className="p-4">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-9 h-9 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold">
-                                            {u.name.charAt(0)}
-                                        </div>
-                                        <div>
-                                            <p className="font-bold text-slate-800">{u.name}</p>
-                                            <p className="text-xs text-slate-500">{u.email}</p>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td className="p-4 text-slate-600">{u.role}</td>
-                                <td className="p-4">
-                                    <span className={`px-2 py-1 rounded-full text-xs font-bold border ${u.status === 'Active' ? 'border-green-200 bg-green-50 text-green-700' : 'border-red-200 bg-red-50 text-red-700'}`}>
-                                        {u.status}
-                                    </span>
-                                </td>
-                                <td className="p-4 text-right">
-                                    <div className="flex justify-end gap-2">
-                                        <button onClick={() => openEditModal(u)} className="p-2 bg-orange-50 text-orange-600 hover:bg-orange-100 rounded-lg transition-colors border border-orange-100">
-                                            <Edit size={16} />
-                                        </button>
-                                        <button onClick={() => deleteUser(u.id)} className="p-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg transition-colors border border-red-100">
-                                            <Trash2 size={16} />
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-            <TablePagination currentPage={page} totalPages={Math.ceil(users.length / rowsPerPage)} onPageChange={setPage} totalItems={users.length} />
-        </div>
-    );
-}
-
-function KnowledgeView({ list, deleteItem, openAddModal, openEditModal }) {
-    const [page, setPage] = useState(1);
-    const rowsPerPage = 5;
-    const paginatedData = list.slice((page - 1) * rowsPerPage, page * rowsPerPage);
-
-    return (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden animate-fade-in-up">
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                 <div>
-                    <h3 className="font-bold text-lg text-slate-800">Knowledge Base</h3>
-                    <p className="text-slate-500 text-sm">จัดการบทความ (Topic)</p>
+                    <label className="block text-sm font-bold text-slate-700 mb-1">
+                    สถานะ
+                    </label>
+                    <select
+                    value={formData.status}
+                    onChange={(e) =>
+                        setFormData({ ...formData, status: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                    <option value="Published">เผยแพร่</option>
+                    <option value="Draft">ฉบับร่าง</option>
+                    </select>
                 </div>
-                <button onClick={openAddModal} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg font-bold shadow-lg shadow-blue-200 transition-all active:scale-95 text-sm">
-                    <Plus size={18} /> สร้างกระทู้ใหม่
-                </button>
+              </div>
+
+              <button
+                onClick={handleSave}
+                className="w-full py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition shadow-lg mt-4"
+              >
+                บันทึกข้อมูล
+              </button>
             </div>
-            <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                    <thead className="bg-slate-50 text-slate-500 text-xs uppercase font-bold">
-                        <tr>
-                            <th className="p-4 w-16 text-center">#</th>
-                            <th className="p-4">Image</th>
-                            <th className="p-4">Topic / Title</th>
-                            <th className="p-4">Category</th>
-                            <th className="p-4">Stats</th>
-                            <th className="p-4 text-right">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                        {paginatedData.map((item, index) => (
-                            <tr key={item.id} className="hover:bg-slate-50 transition-colors">
-                                <td className="p-4 text-center text-slate-400 font-mono">{(page - 1) * rowsPerPage + index + 1}</td>
-                                <td className="p-4">
-                                    <div className="w-12 h-12 bg-slate-100 rounded-lg overflow-hidden border border-slate-200 flex items-center justify-center">
-                                        {item.image ? (
-                                            <img src={item.image} alt="thumb" className="w-full h-full object-cover" />
-                                        ) : (
-                                            <ImageIcon size={20} className="text-slate-400" />
-                                        )}
-                                    </div>
-                                </td>
-                                <td className="p-4 font-bold text-slate-800 max-w-xs truncate">{item.title}</td>
-                                <td className="p-4">
-                                    <span className="px-2 py-1 rounded border border-slate-200 bg-slate-100 text-slate-600 text-xs font-bold">
-                                        {item.category}
-                                    </span>
-                                </td>
-                                <td className="p-4 text-slate-500 text-xs">
-                                     <div className="flex items-center gap-1"><Eye size={14}/> {item.views}</div>
-                                </td>
-                                <td className="p-4 text-right">
-                                    <div className="flex justify-end gap-2">
-                                        <button onClick={() => openEditModal(item)} className="p-2 bg-orange-50 text-orange-600 hover:bg-orange-100 rounded-lg transition-colors border border-orange-100">
-                                            <Edit size={16} />
-                                        </button>
-                                        <button onClick={() => deleteItem(item.id)} className="p-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg transition-colors border border-red-100">
-                                            <Trash2 size={16} />
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-            <TablePagination currentPage={page} totalPages={Math.ceil(list.length / rowsPerPage)} onPageChange={setPage} totalItems={list.length} />
+          </div>
         </div>
-    );
+      )}
+    </div>
+  );
 }

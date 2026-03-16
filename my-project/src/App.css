@@ -5,6 +5,32 @@
   text-align: center;
 }
 
+/* index.css หรือ App.css */
+
+/* เอฟเฟกต์เส้นเลเซอร์วิ่ง */
+@keyframes dash {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.laser-line {
+  stroke-dasharray: 10; /* ความยาวของเส้นขีด */
+  stroke-dashoffset: 100; /* เริ่มต้นซ่อนเส้นไว้ */
+  animation: dash 1s linear forwards; /* สั่งให้มันพุ่ง */
+}
+
+/* จุดกระพริบเมื่อโดนโจมตี */
+@keyframes ping {
+  75%, 100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+.ping-dot {
+  animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
 .logo {
   height: 6em;
   padding: 1.5em;

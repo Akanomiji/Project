@@ -13,6 +13,7 @@ export default function Home() {
       setFileName(file.name);
     }
   };
+  
 
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-slate-50 font-sans text-slate-800 flex flex-col relative overflow-hidden">

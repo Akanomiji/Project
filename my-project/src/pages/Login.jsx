@@ -100,7 +100,7 @@ export default function LoginPage() {
         </div>
         
         {/* Hint สำหรับทดสอบ */}
-        <div className="mt-8 p-4 bg-slate-50 rounded-lg border border-slate-200 text-xs text-slate-500">
+        {/* <div className="mt-8 p-4 bg-slate-50 rounded-lg border border-slate-200 text-xs text-slate-500">
             <p className="font-bold text-slate-700 mb-2">💡 บัญชีทดสอบ (Demo Account):</p>
             <div className="flex justify-between mb-1">
                 <span>User:</span>
@@ -112,9 +112,9 @@ export default function LoginPage() {
             </div>
             <div className="flex justify-between">
                <span>Pass:</span>
-               <span className="font-mono bg-white px-1 rounded border">password123</span>
+               <span className="font-mono bg-white px-1 rounded border">123456</span>
             </div>
-        </div>
+        </div> */}
       </div>
     </div>
   );

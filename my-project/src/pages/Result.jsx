@@ -4,12 +4,29 @@ import {
   Download, ShieldCheck, Globe, Calendar, CheckCircle2, 
   XCircle, AlertTriangle, BrainCircuit, ArrowLeft, Unlock 
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 export default function ResultPage() {
 
   // =================================================================
   // 1. DATA: ข้อมูลจำลอง (Mock Data)
   // =================================================================
+
+  const { user } = useAuth(); // เช็คสถานะการล็อกอิน
+  const navigate = useNavigate();
+  const handleDownload = () => {
+    if (!user) {
+      // ถ้ายังไม่ล็อกอิน -> ให้แจ้งเตือน หรือพาไปหน้า Login
+      alert("กรุณาเข้าสู่ระบบเพื่อดาวน์โหลดรายงาน PDF"); // (Optional)
+      navigate('/login'); 
+    } else {
+      // ถ้าล็อกอินแล้ว -> ดาวน์โหลดไฟล์
+      alert("กำลังดาวน์โหลดรายงาน PDF..."); 
+      // (ใส่โค้ดดาวน์โหลดจริงตรงนี้)
+    }
+  };
+
   const SCENARIOS = {
     safe: {
       score: 98,
@@ -107,8 +124,8 @@ export default function ResultPage() {
                     </a>
                 </div>
             </div>
-            <button className="w-full md:w-auto px-6 py-3 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20 active:scale-95">
-                <Download size={18} /> Download Report
+            <button onClick={handleDownload} className="w-full md:w-auto px-6 py-3 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20 active:scale-95">
+                <Download size={18} /> {user ? "ดาวน์โหลดรายงาน" : "เข้าสู่ระบบเพื่อโหลดรายงาน"}
             </button>
         </div>
 
