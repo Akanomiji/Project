@@ -34,7 +34,7 @@ export default function Navbar() {
   }, [dropdownRef]);
 
   const dashboardLink = user?.role === 'ADMIN' ? '/admin' : '/dashboard';
-  const dashboardText = user?.role === 'ADMIN' ? 'Admin Panel' : 'Member Dashboard';
+  const dashboardText = user?.role === 'ADMIN' ? 'แผงควบคุม' : 'หน้าจอแสดงผลสถิติส่วนบุคคล';
   const isActive = (path) => location.pathname === path;
 
   const getNavLinkClass = (path) => {

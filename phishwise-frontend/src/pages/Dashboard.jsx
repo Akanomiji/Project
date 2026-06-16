@@ -123,7 +123,7 @@ export default function MemberDashboard() {
         <div className="flex flex-col md:flex-row justify-between items-end gap-4 border-b border-slate-200 pb-6">
           <div>
             <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
-              Member Dashboard
+              หน้าจอแสดงผลสถิติของฉัน
             </h1>
             <p className="text-slate-500 mt-2 text-lg">
               ยินดีต้อนรับ, <span className="text-blue-600 font-bold">{user?.name || "User"}</span> 👋

@@ -1,0 +1,25 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    /* ปิด Scroll แนวนอนถาวร (กันหน้าเบี้ยว) ตามต้นฉบับ */
+    @apply overflow-x-hidden bg-background text-slate-800 font-sans;
+  }
+}
+
+/* Scrollbar สวยๆ แบบเดิม */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
