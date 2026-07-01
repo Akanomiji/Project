@@ -2,18 +2,28 @@ import os
 import ssl
 import socket
 import whois
+import pickle
+import requests
 import torch
 import torch.nn as nn
+import numpy as np
+import pandas as pd
 from datetime import datetime
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
-import requests
-from datetime import datetime
+from bs4 import BeautifulSoup
 
+import warnings
+import urllib3
+
+warnings.filterwarnings("ignore", category=UserWarning)
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+# =============================================================
+# 👑 APP CONFIGURATION & MODELS LOADING
+# =============================================================
 app = FastAPI(title="PhishWise Security Hybrid Core API")
-
-# เปิดท่อ CORS ให้ React สามารถข้ามพอร์ตมายิงได้
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -22,221 +32,304 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# -------------------------------------------------------------
-# 🕵️‍♂️ OSINT OSINT FUNCTIONS (ฟังก์ชันสืบค้นประวัติภายนอกสำหรับหน้าจอสรุป)
-# -------------------------------------------------------------
+scan_history_db = []
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# โหลดคลังคำศัพท์และโมเดลตามปกติ
+try:
+    with open(os.path.join(BASE_DIR, "vocab_final.pkl"), "rb") as f:
+        vocab = pickle.load(f)
+    with open(os.path.join(BASE_DIR, "url_random_forest_model.pt"), "rb") as f:
+        url_rf_model = pickle.load(f)
+    bilstm_weights = torch.load(
+        os.path.join(BASE_DIR, "advanced_model_bi_lstm.pt"),
+        map_location=torch.device("cpu"),
+        weights_only=False,
+    )
+    print("🟢 All Models and Resources Loaded Successfully!")
+except Exception as e:
+    print(f"🔴 Error Loading Resources: {e}")
+    vocab = {"<PAD>": 0, "<UNK>": 1}
+    url_rf_model = None
+    bilstm_weights = None
 
 
-def fetch_domain_age(url_str: str):
-    """
-    ฟังก์ชันสืบค้นอายุโดเมนอัจฉริยะ (ระบบ Hybrid Production-Grade)
-    - รองรับการล้างบั๊ก Offset-Aware/Naive Datetime จากโครงสร้าง List + Timezone
-    - มีระบบสำรองดึงผ่าน RDAP API พร้อมแนบ User-Agent เพื่อป้องกันการโดนบล็อก HTTP 403
-    """
+class PhishingBiLSTM(nn.Module):
+    def __init__(
+        self, vocab_size=15000, embedding_dim=64, hidden_dim=128, output_dim=2
+    ):
+        super(PhishingBiLSTM, self).__init__()
+        self.embedding = nn.Embedding(vocab_size, embedding_dim, padding_idx=0)
+        self.lstm = nn.LSTM(
+            embedding_dim,
+            hidden_dim,
+            num_layers=2,
+            bidirectional=True,
+            batch_first=True,
+            dropout=0.3,
+        )
+        self.fc = nn.Linear(hidden_dim * 2, output_dim)
+
+    def forward(self, text):
+        embedded = self.embedding(text)
+        lstm_out, (hidden, cell) = self.lstm(embedded)
+        hidden_out = torch.cat((hidden[-2, :, :], hidden[-1, :, :]), dim=1)
+        return self.fc(hidden_out)
+
+
+# =============================================================
+# 🕵️‍♂️ OSINT FUNCTIONS
+# =============================================================
+def fetch_domain_age_days(url_str: str):
     try:
-        # 1. สกัดเอาชื่อโดเมนหลักและแปลงเป็นตัวพิมพ์เล็ก (เช่น https://www.google.com/ -> google.com)
-        domain = url_str.split("//")[-1].split("/")[0].lower()
-
-        # ป้องกันกรณีใช้โดเมนจำลองรันบนเครื่อง Local
-        if "localhost" in domain or "127.0.0.1" in domain or "mock-qr" in domain:
-            return "โดเมนจำลอง", "ใช้สำหรับการทดสอบระบบ Local"
-
-        # =================================================================
-        # 🚀 แผน ก: สืบค้นผ่าน python-whois (วิ่งผ่าน Port 43 มาตรฐานโลก)
-        # =================================================================
-        try:
-            w = whois.whois(domain)
-            creation_date = w.get("creation_date")
-
-            # 🔥 ล้างบั๊กจุดที่ 1: ถ้าค่าส่งมาเป็นลิสต์อาร์เรย์ซ้อนกัน ให้หยิบตัวแรกมาใช้งาน
-            if isinstance(creation_date, list):
-                creation_date = creation_date[0]
-
-            if creation_date:
-                # 🔥 ล้างบั๊กจุดที่ 2: จัดการกับเขตเวลา (+00:00) ที่ติดมากับวัตถุ datetime (Offset-Aware)
-                # โดยการล้างค่าเขตเวลาออก (tzinfo=None) เพื่อให้สามารถนำไปลบกับ datetime.now() ของเครื่องได้
-                if (
-                    hasattr(creation_date, "tzinfo")
-                    and creation_date.tzinfo is not None
-                ):
-                    creation_date = creation_date.replace(tzinfo=None)
-
-                # หากข้อมูลหลุดมาในรูปแบบข้อความ String ธรรมดา
-                if isinstance(creation_date, str):
-                    # ตัดเครื่องหมายบวกหรือช่องว่างด้านหลังออก เอาเฉพาะวันที่ส่วนหน้าสุด
-                    clean_date_str = creation_date.split("+")[0].split()[0]
-                    creation_date = datetime.strptime(clean_date_str, "%Y-%m-%d")
-
-                # ทำการคำนวณสถิติอายุโดเมน
-                diff = datetime.now() - creation_date
-                years = diff.days // 365
-                months = (diff.days % 365) // 30
-
-                if years == 0 and months == 0:
-                    return (
-                        f"{diff.days} วัน",
-                        f"จดทะเบียนเมื่อ: {creation_date.strftime('%d %b %Y')}",
-                    )
+        domain = url_str.split("//")[-1].split("/")[0].lower().replace("www.", "")
+        w = whois.whois(domain)
+        creation_date = w.creation_date
+        if isinstance(creation_date, list):
+            creation_date = creation_date[0]
+        if creation_date:
+            age_days = (datetime.now() - creation_date.replace(tzinfo=None)).days
+            if age_days < 180:
                 return (
-                    f"{years} ปี {months} เดือน",
-                    f"จดทะเบียนเมื่อ: {creation_date.strftime('%d %b %Y')}",
+                    age_days,
+                    f"{age_days} วัน",
+                    f"⚠️ โดเมนพึ่งจดทะเบียนใหม่ได้เพียง {age_days} วัน",
                 )
-
-        except Exception as whois_err:
-            # พ่น Log บอกสเตตัสใน Terminal หลังบ้าน แต่ปล่อยให้ระบบไหลไปทำแผน ข ต่อไป ไม่ให้ระบบล่ม
-            print(f"⚠️ WHOIS Port 43 Blocked or Error: {str(whois_err)}")
-            pass
-
-        # =================================================================
-        # 🚀 แผน ข (Backup Layer): ดึงผ่าน RDAP API (วิ่งผ่าน HTTP/HTTPS Port 443)
-        # =================================================================
-        try:
-            rdap_url = f"https://rdap.org/domain/{domain}"
-
-            # 🔥 ล้างบั๊กจุดที่ 3: ใส่โครงสร้าง Headers เพื่อจำลองว่าส่งมาจากหน้าเว็บเบราว์เซอร์จริง
-            # ป้องกันระบบความปลอดภัยปลายทางดีดคำขอเราทิ้งเป็น HTTP 403 Forbidden
-            headers = {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-            }
-            response = requests.get(rdap_url, headers=headers, timeout=5)
-
-            if response.status_code == 200:
-                data = response.json()
-                events = data.get("events", [])
-                event_date_str = None
-
-                # วนลูปสแกนหาคีย์วันที่บันทึกการจัดตั้ง (Registration Date)
-                for event in events:
-                    action = event.get("eventAction", "").lower()
-                    if action in ["registration", "active", "last changed"]:
-                        event_date_str = event.get("eventDate")
-                        if action == "registration":
-                            break
-
-                # หากค้นหาแท็กไม่เจอ แต่มีประวัติเหตุการณ์ส่งมา ให้เอาค่าจากช่องแรกสุด
-                if not event_date_str and events:
-                    event_date_str = events[0].get("eventDate")
-
-                if event_date_str:
-                    # สับสตริงข้อความเอาเฉพาะข้อมูลวันที่ 10 หลักแรก (YYYY-MM-DD)
-                    clean_date_str = event_date_str[:10]
-                    creation_date = datetime.strptime(clean_date_str, "%Y-%m-%d")
-
-                    diff = datetime.now() - creation_date
-                    years = diff.days // 365
-                    months = (diff.days % 365) // 30
-
-                    if years == 0 and months == 0:
-                        return (
-                            f"{diff.days} วัน",
-                            f"จดทะเบียนเมื่อ: {creation_date.strftime('%d %b %Y')} (ผ่าน RDAP API)",
-                        )
-                    return (
-                        f"{years} ปี {months} เดือน",
-                        f"จดทะเบียนเมื่อ: {creation_date.strftime('%d %b %Y')} (ผ่าน RDAP API)",
-                    )
-
-        except Exception as rdap_err:
-            print(f"⚠️ RDAP Fallback Engine Error: {str(rdap_err)}")
-            pass
-
-    except Exception as main_err:
-        print(f"⚠️ Critical Domain Age Function Error: {str(main_err)}")
-        pass
-
-    # คืนค่ากรณีสุดท้ายหากบล็อกหนาแน่นมากจนทำทุกแผนแล้วไม่ได้ข้อมูลจริงๆ
-    return "ไม่พบข้อมูล", "ระบบตรวจไม่พบประวัติโดเมนนี้ในฐานข้อมูลสาธารณะ"
-
-
-def fetch_ssl_details(url_str: str):
-    """ฟังก์ชันสแกน Handshake ตรวจสอบความสมบูรณ์ของใบรับรอง SSL"""
-    try:
-        domain = url_str.split("//")[-1].split("/")[0]
-        ctx = ssl.create_default_context()
-        with socket.create_connection((domain, 443), timeout=2.5) as sock:
-            with ctx.wrap_socket(sock, server_hostname=domain) as ssock:
-                cert = ssock.getpeercert()
-                issuer = dict(x[0] for x in cert["issuer"])
-                common_name = issuer.get("commonName", "Unknown Cryptography Authority")
-                return common_name, "ตรวจพบการเข้ารหัส HTTPS ที่ปลอดภัย"
+            return (
+                age_days,
+                f"{age_days // 365} ปี { (age_days % 365) // 30 } เดือน",
+                "🟢 โดเมนมีประวัติเปิดใช้งานยาวนาน",
+            )
+        return None, "ไม่พบข้อมูล", "ไม่พบประวัติข้อมูลระบบจัดทะเบียน"
     except Exception:
-        pass
-    return "Not Secure", "ไซต์นี้ไม่มีระบบเข้ารหัสใบรับรองหรือปิดพอร์ต 443"
+        return None, "ไม่พบข้อมูล", "ไม่พบประวัติข้อมูลระบบจัดทะเบียน"
+
+
+def fetch_ssl_status(url_str: str):
+    try:
+        hostname = url_str.split("//")[-1].split("/")[0].split(":")[0]
+        context = ssl.create_default_context()
+        with socket.create_connection((hostname, 443), timeout=3) as sock:
+            with context.wrap_socket(sock, server_hostname=hostname) as ssock:
+                cert = ssock.getpeercert()
+                issuer = dict(x[0] for x in cert["issuer"]).get(
+                    "commonName", "Unknown CA"
+                )
+                return True, issuer, "🔒 มีการเข้ารหัสข้อมูลปกติ ปลอดภัย"
+    except Exception:
+        return (
+            False,
+            "Not Secure",
+            "❌ ไม่พบการเข้ารหัสข้อมูลที่ปลอดภัย หรือ SSL หมดอายุ",
+        )
 
 
 def fetch_ip_location(url_str: str):
-    """ฟังก์ชันสืบค้นเครื่องประเทศที่ตั้งผ่าน IP Address ของชื่อเว็บไซต์"""
     try:
-        domain = url_str.split("//")[-1].split("/")[0]
-        ip = socket.gethostbyname(domain)
-        # ตรรกะคัดกรองจัดกลุ่มไอพีจำลอง (เพื่อให้แสดงผลได้โดยไม่ต้องผูก API คีย์ค่ายนอก)
-        if ip.startswith("142.") or ip.startswith("172.") or ip.startswith("216."):
-            return "United States (Google Grid)"
-        if ip.startswith("13.") or ip.startswith("23.") or ip.startswith("52."):
-            return "Singapore (Microsoft Azure)"
-        return "International Cloud Host"
+        hostname = url_str.split("//")[-1].split("/")[0].split(":")[0]
+        ip_address = socket.gethostbyname(hostname)
+        res = requests.get(f"https://ipapi.co/{ip_address}/json/", timeout=3).json()
+        return f"{res.get('city', 'Unknown')}, {res.get('country_name', 'Unknown')}"
     except Exception:
-        return "Unknown Network Location"
+        return "Unknown Location"
 
 
-# -------------------------------------------------------------
-# 🤖 AI MODELS MOCKUP SETUP (ส่วนนี้จำลองลอจิกทำผลคะแนนคู่ขนานกับโมเดลเดิมของคุณ)
-# -------------------------------------------------------------
+def extract_url_features(url: str):
+    return np.array(
+        [
+            [
+                len(url),
+                (
+                    1
+                    if any(
+                        c.isdigit()
+                        for c in url.split("//")[-1].split("/")[0].split(".")
+                    )
+                    else 0
+                ),
+                url.count("."),
+                url.count("-"),
+                url.count("@"),
+                url.count("?"),
+                url.count("/"),
+                url.count("="),
+                1 if "http" in url.split("//")[-1] else 0,
+                1 if "https" in url.split("//")[-1] else 0,
+                sum(c.isdigit() for c in url),
+            ]
+        ],
+        dtype=np.float32,
+    )
 
 
+def process_html_content(url: str, max_len=500):
+    try:
+        res = requests.get(
+            url, headers={"User-Agent": "Mozilla/5.0"}, timeout=3, verify=False
+        )
+        if res.status_code != 200:
+            return None
+        soup = BeautifulSoup(res.text, "html.parser")
+        for e in soup(["script", "style"]):
+            e.extract()
+        tokens = soup.get_text().lower().split()
+        if not tokens:
+            return None
+        numerical = [vocab.get(t, vocab.get("<UNK>", 1)) for t in tokens[:max_len]]
+        if len(numerical) < max_len:
+            numerical += [vocab.get("<PAD>", 0)] * (max_len - len(numerical))
+        return torch.tensor([numerical], dtype=torch.long)
+    except Exception:
+        return None
+
+
+# =============================================================
+# 📡 CORE API CONTROLLER WITH PRIORITY RANKING
+# =============================================================
 class ScanRequest(BaseModel):
     url: str
 
 
 @app.post("/api/v1/scan")
-async def scan_url_endpoint(request: ScanRequest):
+async def scan_url(request: ScanRequest):
     url = request.url
+    is_trusted = any(
+        d in url.lower()
+        for d in ["google.com", "microsoft.com", "github.com", "facebook.com"]
+    )
 
-    # 🧠 ลอจิกระดับคะแนนความปลอดภัยจากปัญญาประดิษฐ์ Hybrid AI (0 - 100)
-    # (นำไปผูกแทนที่ด้วยโค้ดรันโมเดล .pt และ .pkl ตัวจริงของคุณได้เลย)
-    if "google" in url or "github" in url or "secure" in url and "http" in url:
-        rf_score = 1.0
-        bilstm_score = 0.98
-    else:
-        rf_score = 0.35
-        bilstm_score = 0.40
+    # 1️⃣ [CRITICAL PRIORITY] เช็คฐานข้อมูลบัญชีดำจำลองก่อนชิ้นแรก
+    # (สมมติจำลองว่าถ้าตรวจเจอลิงก์คีย์เวิร์ดมัลแวร์จัดๆ หรือโดนแจ้งบล็อก ให้ดีดเป็นอันตรายร้อยเปอร์เซ็นต์ทันที)
+    is_in_blacklist_db = False
+    if "malicious-scam-test" in url.lower():
+        is_in_blacklist_db = True
 
-    final_score = int(((rf_score + bilstm_score) / 2) * 100)
+    if is_in_blacklist_db:
+        return {
+            "url": url,
+            "score": 0,
+            "status": "danger",
+            "ai_risk_score": 100,
+            "ssl_title": "Not Secure",
+            "ssl_sub": "❌ ติดแบล็กลิสต์ระบบ",
+            "domain_age": "0 วัน",
+            "domain_sub": "🚨 ตรวจพบในฐานข้อมูลบัญชีดำส่วนกลาง",
+            "is_blacklisted": True,
+            "google_safe": False,
+            "location": "Unknown",
+            "has_redirection": False,
+        }
 
-    # ตัดสินระดับความปลอดภัย
-    if final_score >= 80:
+    # ดึงข้อมูล OSINT มาเตรียมพร้อมสำหรับใช้จัดค่าน้ำหนัก
+    age_days, domain_age, domain_sub = fetch_domain_age_days(url)
+    has_ssl, ssl_title, ssl_sub = fetch_ssl_status(url)
+    location_name = fetch_ip_location(url)
+
+    rf_risk = 0.0
+    bilstm_risk = 0.0
+
+    # 2️⃣ [MEDIUM PRIORITY] คำนวณคะแนนฐานพื้นฐานจากโมเดล AI
+    if url_rf_model is not None and not is_trusted:
+        try:
+            df_features = pd.DataFrame(
+                extract_url_features(url),
+                columns=[
+                    "url_length",
+                    "is_ip_address",
+                    "count_dots",
+                    "count_hyphens",
+                    "count_at",
+                    "count_question",
+                    "count_slash",
+                    "count_equal",
+                    "has_http",
+                    "has_https",
+                    "count_digits",
+                ],
+            )
+            rf_risk = float(url_rf_model.predict_proba(df_features)[0][1])
+        except Exception:
+            pass
+
+    html_tensor = process_html_content(url)
+    if html_tensor is not None and bilstm_weights is not None and not is_trusted:
+        try:
+            model_instance = PhishingBiLSTM(
+                vocab_size=15000, embedding_dim=64, output_dim=2
+            )
+            model_instance.load_state_dict(
+                (
+                    bilstm_weights
+                    if "embedding.weight" in bilstm_weights
+                    else bilstm_weights.get("state_dict", bilstm_weights)
+                ),
+                strict=True,
+            )
+            model_instance.eval()
+            with torch.no_grad():
+                probabilities = torch.softmax(model_instance(html_tensor), dim=1)[0]
+                bilstm_risk = float(probabilities[1].item())
+        except Exception:
+            pass
+
+    # คะแนนตั้งต้นรวมจาก AI (สัดส่วนอย่างละ 50% ของคะแนนโมเดล)
+    accumulated_risk = 0 if is_trusted else int(((rf_risk + bilstm_risk) / 2) * 100)
+
+    # 3️⃣ [HIGH PRIORITY] การปรับโทษคะแนน (Penalty Score) ตามระดับความรุนแรงภายนอก
+    if not is_trusted:
+        # 🚨 กรณีที่ 1: อายุโดเมนต่ำกว่า 30 วัน (อันตรายมาก เพิ่มความเสี่ยงหนักที่สุด +40 คะแนน)
+        if age_days is not None and age_days <= 30:
+            accumulated_risk = min(100, accumulated_risk + 40)
+        # 🟡 กรณีที่ 2: อายุโดเมนต่ำกว่า 180 วัน (ความเสี่ยงปานกลาง เพิ่มความเสี่ยง +20 คะแนน)
+        elif age_days is not None and age_days <= 180:
+            accumulated_risk = min(100, accumulated_risk + 20)
+
+        # 🔒 กรณีที่ 3: ไม่มีใบรับรอง SSL หรือเชื่อมต่อไม่ปลอดภัย (+30 คะแนนความเสี่ยง)
+        if not has_ssl:
+            accumulated_risk = min(100, accumulated_risk + 30)
+
+        # 📦 กรณีที่ 4: ตรวจพบโครงสร้างไฟล์ดาวน์โหลดสุ่มเสี่ยงพ่วงท้ายภายนอก (+20 คะแนนความเสี่ยง)
+        if any(ext in url.lower() for ext in [".zip", ".exe", ".rar", ".scr"]):
+            accumulated_risk = min(100, accumulated_risk + 20)
+
+    # ⚡️ สรุปและกลับทิศทางเป็นคะแนนความปลอดภัยส่งให้หน้าบ้าน
+    final_risk_score = accumulated_risk
+    final_safe_score = 100 - final_risk_score
+
+    # แบ่งเกณฑ์กลุ่มสถานะตามคะแนนความปลอดภัยสุทธิ
+    if final_safe_score >= 75:
         status = "safe"
-    elif final_score >= 50:
+    elif final_safe_score >= 45:
         status = "warning"
     else:
         status = "danger"
 
-    # 🕵️‍♂️ เรียกใช้นักสืบ OSINT ค้นหาข้อมูลจริงมาหยอดใส่การ์ดบนจอ
-    ssl_title, ssl_sub = fetch_ssl_details(url)
-    domain_age, domain_sub = fetch_domain_age(url)
-    location_name = fetch_ip_location(url)
+    scan_log = {
+        "timestamp": datetime.now().isoformat(),
+        "url": url,
+        "score": final_safe_score,
+        "status": status,
+    }
+    scan_history_db.append(scan_log)
 
-    # พ่นพัสดุก้อน JSON ชุดใหญ่ส่งกลับไปให้หน้าจอ React ถอดรหัสแสดงผล
     return {
         "url": url,
-        "score": final_score,
+        "score": final_safe_score,  # ส่งคะแนนความปลอดภัยสุทธิหลังปรับ Priority ไปที่วงกลมฝั่งซ้าย
         "status": status,
         "ssl_title": ssl_title,
         "ssl_sub": ssl_sub,
         "domain_age": domain_age,
         "domain_sub": domain_sub,
-        "is_blacklisted": True if final_score < 50 else False,
-        "google_safe": True if final_score >= 50 else False,
-        "has_redirection": True if "http://" in url and final_score < 60 else False,
+        "ai_risk_score": final_risk_score,  # ส่งคะแนนความเสี่ยงสุทธิไปแสดงที่แถบขวาบน
+        "is_blacklisted": (
+            False if is_trusted else (True if status == "danger" else False)
+        ),
+        "google_safe": True if is_trusted else (False if status == "danger" else True),
         "location": location_name,
-        "metrics": {
-            "url_analysis_score": int(rf_score * 100),
-            "content_analysis_score": int(bilstm_score * 100),
-        },
+        "has_redirection": False,
     }
 
 
-if __name__ == "__main__":
-    import uvicorn
-
-    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
+@app.get("/api/v1/history")
+async def get_scan_history():
+    return {"total_scans": len(scan_history_db), "logs": scan_history_db}

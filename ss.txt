@@ -26,5 +26,5 @@ Python (เวอร์ชัน 3.9 ขึ้นไป): ต้องติด�
 เปิด Terminal ในโฟลเดอร์หลังบ้าน
 
 พิมพ์ pip install -r requirements.txt (คำสั่งนี้จะดาวน์โหลดไลบรารี AI หรือแพ็กเกจเซิร์ฟเวอร์ทั้งหมดที่หลังบ้านต้องใช้มาลงเครื่องเขาโดยอัตโนมัติ)
-
+pip install beautifulsoup4 requests
 พิมพ์คำสั่งรันระบบ (เช่น python app.py หรือ uvicorn main:app --reload)
