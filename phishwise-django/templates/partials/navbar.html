@@ -1,0 +1,24 @@
+<nav class="sticky top-0 z-50 bg-white/90 backdrop-blur border-b border-slate-200 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        <a href="{% url 'home' %}" class="flex items-center gap-2 font-bold text-slate-900">
+            <span class="text-blue-600 text-2xl">🛡</span>
+            <span>PhishWise</span>
+        </a>
+        <div class="hidden md:flex items-center gap-6 text-sm font-medium text-slate-600">
+            <a href="{% url 'home' %}" class="hover:text-blue-600">หน้าหลัก</a>
+            <a href="{% url 'knowledge' %}" class="hover:text-blue-600">ความรู้ไซเบอร์</a>
+            {% if current_user %}
+                <a href="{% url 'report' %}" class="px-4 py-2 rounded-lg bg-red-50 text-red-600 border border-red-100">แจ้งเบาะแส</a>
+                <a href="{% url 'scan_history' %}" class="hover:text-blue-600">ประวัติการสแกน</a>
+                <a href="{% url 'history' %}" class="hover:text-blue-600">ประวัติแจ้งเบาะแส</a>
+                <a href="{% if current_user.role == 'ADMIN' %}{% url 'admin' %}{% else %}{% url 'dashboard' %}{% endif %}" class="hover:text-blue-600">แดชบอร์ด</a>
+                <span class="text-slate-400">|</span>
+                <span class="text-slate-700">{{ current_user.name }}</span>
+                <a href="{% url 'logout' %}" class="text-red-500 hover:text-red-600">ออกจากระบบ</a>
+            {% else %}
+                <a href="{% url 'login' %}" class="hover:text-blue-600">เข้าสู่ระบบ</a>
+                <a href="{% url 'register' %}" class="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700">สมัครสมาชิก</a>
+            {% endif %}
+        </div>
+    </div>
+</nav>

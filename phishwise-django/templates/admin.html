@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+{% block title %}Admin | PhishWise{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+{% endblock %}
+
+{% block content %}
+<div class="flex h-screen bg-slate-50 text-slate-900 overflow-hidden">
+    <aside class="w-64 bg-white border-r border-slate-200 flex flex-col">
+        <div class="h-16 flex items-center px-4 border-b border-slate-100 font-bold text-blue-600">PhishWise Admin</div>
+        <nav class="p-3 space-y-2">
+            <button class="w-full text-left px-3 py-3 rounded-xl bg-blue-600 text-white">ภาพรวมระบบ</button>
+            <button class="w-full text-left px-3 py-3 rounded-xl hover:bg-slate-50">จัดการผู้ใช้</button>
+            <button class="w-full text-left px-3 py-3 rounded-xl hover:bg-slate-50">รายการแจ้งเบาะแส</button>
+            <button class="w-full text-left px-3 py-3 rounded-xl hover:bg-slate-50">จัดการเว็บไซต์</button>
+            <button class="w-full text-left px-3 py-3 rounded-xl hover:bg-slate-50">คลังความรู้</button>
+        </nav>
+        <div class="p-4 border-t border-slate-100 mt-auto"><a class="text-red-500 font-semibold" href="{% url 'logout' %}">ออกจากระบบ</a></div>
+    </aside>
+    <main class="flex-1 overflow-y-auto">
+        <header class="h-16 bg-white border-b border-slate-200 px-8 flex items-center justify-between">
+            <h1 class="text-xl font-bold">ภาพรวมระบบ</h1>
+            <span class="px-3 py-1 rounded-full bg-green-100 text-green-700 text-xs font-bold">ระบบทำงานปกติ</span>
+        </header>
+        <div class="p-8 max-w-7xl mx-auto space-y-8">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm"><p class="text-slate-500 text-sm">การเข้าชมวันนี้</p><h3 class="text-2xl font-bold">12,540</h3></div>
+                <div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm"><p class="text-slate-500 text-sm">ภัยคุกคาม</p><h3 class="text-2xl font-bold">15,000</h3></div>
+                <div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm"><p class="text-slate-500 text-sm">แจ้งเบาะแสใหม่</p><h3 class="text-2xl font-bold">15</h3></div>
+                <div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm"><p class="text-slate-500 text-sm">บทความในคลัง</p><h3 class="text-2xl font-bold">45</h3></div>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-100 shadow-sm"><canvas id="adminChart" height="140"></canvas></div>
+                <div class="bg-[#1e293b] p-6 rounded-2xl text-white shadow-lg">
+                    <h3 class="font-bold text-lg mb-3">Live Threat Map</h3>
+                    <div id="adminMap" class="h-72 rounded-xl overflow-hidden border border-slate-700"></div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+new Chart(document.getElementById('adminChart'), {
+    type: 'bar',
+    data: {
+        labels: ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.'],
+        datasets: [{ label: 'ภัยคุกคาม', data: [3500, 3800, 4000, 3900, 4500, 0], backgroundColor: '#ef4444' }]
+    },
+    options: { responsive: true, plugins: { legend: { display: false } } }
+});
+
+const adminMap = L.map('adminMap', { zoomControl: false }).setView([13.7563, 100.5018], 2);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap contributors' }).addTo(adminMap);
+L.marker([13.7563, 100.5018]).addTo(adminMap).bindPopup('Bangkok');
+L.marker([37.0902, -95.7129]).addTo(adminMap).bindPopup('USA');
+</script>
+{% endblock %}

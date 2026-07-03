@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard | PhishWise{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+{% endblock %}
+
+{% block content %}
+<main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-14">
+    <div class="flex flex-col md:flex-row justify-between items-end gap-4 border-b border-slate-200 pb-6 mb-8">
+        <div>
+            <h1 class="text-3xl font-bold text-slate-900">หน้าจอแสดงผลสถิติของฉัน</h1>
+            <p class="text-slate-500 mt-2 text-lg">ยินดีต้อนรับ, <span class="text-blue-600 font-bold">{{ current_user.name|default:'User' }}</span></p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200"><p class="text-slate-500 text-sm">สแกนทั้งหมด</p><h2 class="text-3xl font-bold">43</h2></div>
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200"><p class="text-slate-500 text-sm">ภัยคุกคามที่พบ</p><h2 class="text-3xl font-bold text-red-600">3</h2></div>
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200"><p class="text-slate-500 text-sm">Score ความปลอดภัย</p><h2 class="text-3xl font-bold text-green-600">92%</h2></div>
+        <a href="{% url 'history' %}" class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 block"><p class="text-slate-500 text-sm">การแจ้งเบาะแส</p><h2 class="text-3xl font-bold">2</h2></a>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div class="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+            <div class="flex justify-between items-center mb-6"><h3 class="font-bold text-lg">สถิติการใช้งาน</h3></div>
+            <canvas id="memberChart" height="140"></canvas>
+        </div>
+        <div class="flex flex-col gap-6">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 h-64">
+                <h3 class="font-bold text-lg mb-2">แหล่งภัยคุกคาม</h3>
+                <div id="memberMap" class="h-48 rounded-xl overflow-hidden"></div>
+            </div>
+            <div class="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-2xl p-6 text-white shadow-lg">
+                <div class="text-xs font-bold opacity-80">Tip</div>
+                <h4 class="font-bold text-lg mt-3">ระวัง! QR Code ปลอม</h4>
+                <p class="text-indigo-100 text-sm mt-2">ตรวจสอบชื่อปลายทางก่อนโอนเงินเสมอ</p>
+            </div>
+        </div>
+    </div>
+</main>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const memberCtx = document.getElementById('memberChart');
+new Chart(memberCtx, {
+    type: 'line',
+    data: {
+        labels: ['จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.', 'อา.'],
+        datasets: [
+            { label: 'ปลอดภัย', data: [5,8,4,10,6,3,7], borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,.15)', fill: true, tension: .4 },
+            { label: 'อันตราย', data: [0,1,0,0,2,0,0], borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,.12)', fill: true, tension: .4 },
+        ]
+    },
+    options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+});
+
+const memberMap = L.map('memberMap', { zoomControl: false }).setView([13.7563, 100.5018], 2);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap contributors' }).addTo(memberMap);
+L.marker([13.7563, 100.5018]).addTo(memberMap).bindPopup('Bangkok');
+</script>
+{% endblock %}

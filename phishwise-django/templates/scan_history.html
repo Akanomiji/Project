@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% block title %}Scan History | PhishWise{% endblock %}
+
+{% block content %}
+<main class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-12">
+    <div class="mb-8 border-b border-slate-200 pb-4">
+        <h1 class="text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-3">ประวัติการสแกนลิงก์</h1>
+        <p class="text-slate-500 mt-2">รายการ URL ที่คุณเคยตรวจสอบความปลอดภัยย้อนหลัง</p>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        {% if scan_data %}
+            <div class="divide-y divide-slate-100">
+                {% for item in scan_data %}
+                    <div class="p-5 hover:bg-slate-50 transition flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+                        <div class="flex items-start gap-4 overflow-hidden flex-1">
+                            <div class="mt-1 p-2 rounded-full {% if item.score >= 75 %}bg-green-100 text-green-700{% else %}bg-red-100 text-red-700{% endif %}">
+                                {% if item.score >= 75 %}✓{% else %}!{% endif %}
+                            </div>
+                            <div class="min-w-0 flex-1">
+                                <p class="text-slate-900 font-bold truncate text-lg">{{ item.url }}</p>
+                                <p class="text-xs text-slate-500">{{ item.timestamp|date:'d M Y, H:i' }} · Score: <span class="font-bold {% if item.score >= 75 %}text-green-600{% else %}text-red-500{% endif %}">{{ item.score }}/100</span></p>
+                            </div>
+                        </div>
+                        <div class="px-3 py-1 rounded-full text-xs font-bold {% if item.score >= 75 %}bg-green-100 text-green-700{% else %}bg-red-100 text-red-700{% endif %}">{{ item.status }}</div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="py-20 text-center text-slate-400">ยังไม่มีประวัติการสแกน</div>
+        {% endif %}
+    </div>
+</main>
+{% endblock %}

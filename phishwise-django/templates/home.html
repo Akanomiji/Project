@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% block title %}PhishWise | Home{% endblock %}
+
+{% block content %}
+<main class="min-h-[calc(100vh-4rem)] py-12">
+    <div class="max-w-5xl mx-auto px-4 text-center">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 text-blue-600 text-xs font-bold mb-6 border border-blue-100">
+            AI-Powered Security
+        </div>
+        <h1 class="text-4xl md:text-6xl font-black text-slate-900 mb-6 tracking-tight leading-tight">
+            Analyze suspicious URLs & QR Codes
+        </h1>
+        <p class="text-lg text-slate-500 mb-10 max-w-2xl mx-auto">
+            ตรวจสอบลิงก์และไฟล์ที่น่าสงสัยด้วยระบบ AI อัจฉริยะ ปกป้องข้อมูลส่วนตัวของคุณจากการถูกโจรกรรมข้อมูล
+        </p>
+
+        <form data-scan-form class="bg-white p-3 md:p-4 rounded-3xl shadow-2xl border border-slate-100 max-w-3xl mx-auto animate-fade-in">
+            {% csrf_token %}
+            <input type="hidden" value="url" data-scan-active>
+            <div class="flex gap-2 mb-3 p-2 bg-slate-50 rounded-2xl">
+                <button type="button" data-scan-tab="url" class="flex-1 py-3 rounded-lg text-sm font-medium bg-white text-blue-600 shadow-sm ring-1 ring-black/5">URL Link</button>
+                <button type="button" data-scan-tab="qr" class="flex-1 py-3 rounded-lg text-sm font-medium text-slate-500 hover:bg-slate-200/50">QR Image</button>
+            </div>
+
+            <div class="relative">
+                <div data-scan-url-panel>
+                    <input type="text" data-scan-url-input class="w-full pl-4 md:pl-12 pr-4 md:pr-36 py-4 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none font-mono text-sm" placeholder="วางลิงก์ที่ต้องการตรวจสอบ (เช่น http://example.com)">
+                </div>
+
+                <div data-scan-qr-panel class="hidden">
+                    <input id="scan-qr-upload" type="file" data-scan-file-input accept="image/*" class="hidden">
+                    <label for="scan-qr-upload" class="flex items-center gap-3 w-full px-4 py-4 rounded-2xl border-2 border-dashed border-slate-300 cursor-pointer hover:border-blue-500 hover:bg-blue-50/30">
+                        <span class="px-3 py-2 rounded-xl bg-slate-100 text-slate-500">Upload</span>
+                        <span class="text-sm text-slate-500 truncate" data-scan-file-name>คลิกเพื่ออัปโหลดรูปภาพ QR Code</span>
+                    </label>
+                </div>
+
+                <button type="submit" data-scan-submit class="mt-4 md:mt-0 md:absolute md:right-2 md:top-2 md:bottom-2 bg-blue-600 hover:bg-blue-700 text-white px-6 rounded-xl font-bold shadow-lg shadow-blue-600/30">
+                    ตรวจสอบ
+                </button>
+            </div>
+        </form>
+
+        <div class="flex flex-wrap justify-center gap-4 mt-12 text-sm font-semibold text-slate-500">
+            <span class="flex items-center gap-2 bg-white px-4 py-2 rounded-full border border-slate-100 shadow-sm">ไม่มีค่าใช้จ่าย</span>
+            <span class="flex items-center gap-2 bg-white px-4 py-2 rounded-full border border-slate-100 shadow-sm">รู้ผลทันที</span>
+            <span class="flex items-center gap-2 bg-white px-4 py-2 rounded-full border border-slate-100 shadow-sm">ปลอดภัย 100%</span>
+        </div>
+    </div>
+</main>
+{% endblock %}

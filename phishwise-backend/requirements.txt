@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+pydantic
+requests
+torch
+numpy
+pandas
+python-whois
+beautifulsoup4
+urllib3
+scikit-learn

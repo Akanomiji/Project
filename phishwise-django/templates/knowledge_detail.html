@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% block title %}Knowledge Detail | PhishWise{% endblock %}
+
+{% block content %}
+<main class="bg-white min-h-screen">
+    <div class="max-w-5xl mx-auto px-4 py-10">
+        <a href="{% url 'knowledge' %}" class="inline-flex items-center gap-2 text-slate-500 hover:text-blue-600 font-bold">← กลับไปคลังความรู้</a>
+        {% if article %}
+            <header class="text-center py-10">
+                <div class="inline-flex items-center gap-2 px-4 py-1.5 bg-blue-50 text-blue-600 rounded-full text-xs font-black uppercase mb-6 tracking-widest">{{ article.category }}</div>
+                <h1 class="text-4xl md:text-5xl font-black text-slate-900 leading-tight mb-6">{{ article.title }}</h1>
+                <div class="text-sm text-slate-400 font-bold">{{ article.author }} · {{ article.date }}</div>
+            </header>
+            <div class="rounded-[2rem] overflow-hidden shadow-2xl aspect-[21/9] mb-12"><img src="{{ article.image }}" alt="{{ article.title }}" class="w-full h-full object-cover"></div>
+            <article class="article-content max-w-3xl mx-auto pb-24">
+                <p class="text-xl text-slate-600">{{ article.content }}</p>
+            </article>
+        {% else %}
+            <div class="mt-12 p-10 border-2 border-dashed border-slate-200 rounded-3xl text-center">
+                <h3 class="text-xl font-bold text-slate-700">ไม่พบข้อมูลบทความที่คุณต้องการ</h3>
+            </div>
+        {% endif %}
+    </div>
+</main>
+{% endblock %}
