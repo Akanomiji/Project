@@ -9,3 +9,6 @@ python-whois
 requests
 beautifulsoup4
 urllib3
+opencv-python
+Pillow
+python-dotenv
