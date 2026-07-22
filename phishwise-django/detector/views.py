@@ -29,6 +29,22 @@ def scan_url(request):
         timestamp=timezone.now(),
     )
 
+    request.session['last_scan_result'] = {
+        'url': result['url'],
+        'score': result['score'],
+        'status': result['status'],
+        'ai_risk_score': result['ai_risk_score'],
+        'ssl_title': result['ssl_title'],
+        'ssl_sub': result['ssl_sub'],
+        'domain_age': result['domain_age'],
+        'domain_sub': result['domain_sub'],
+        'is_blacklisted': result['is_blacklisted'],
+        'google_safe': result['google_safe'],
+        'location': result['location'],
+        'has_redirection': result['has_redirection'],
+    }
+    request.session.modified = True
+
     return Response(result)
 
 

@@ -67,7 +67,7 @@ function initScanForm() {
 		submitButton.innerHTML = '<span class="flex items-center gap-1.5"><span class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>ตรวจอยู่...</span>';
 
 		try {
-			const response = await fetch('/api/v1/scan', {
+			const response = await fetch('/api/v1/scan/', {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
@@ -97,7 +97,7 @@ function initScanForm() {
 
 function initResultPage() {
 	const mount = document.querySelector('[data-result-page]');
-	if (!mount) return;
+	if (!mount || mount.dataset.resultRendered === '1') return;
 
 	const raw = sessionStorage.getItem('phishwise:lastScan');
 	if (!raw) return;

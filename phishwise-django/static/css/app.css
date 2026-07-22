@@ -1,14 +1,33 @@
 /* Shared polish for the Django-rendered templates. */
 
 :root {
-	--phishwise-bg: #020617;
+	--phishwise-primary: #0F172A;
+	--phishwise-secondary: #1E40AF;
+	--phishwise-accent: #7C3AED;
+	--phishwise-success: #10B981;
+	--phishwise-danger: #EF4444;
+	--phishwise-warning: #F59E0B;
+	--phishwise-background: #F8FAFC;
+	--phishwise-surface: #FFFFFF;
+	--phishwise-font-sans: 'Inter', 'Sarabun', sans-serif;
+}
+
+html {
+	scroll-behavior: smooth;
 }
 
 body {
+	font-family: var(--phishwise-font-sans);
 	background:
 		radial-gradient(circle at top left, rgba(59, 130, 246, 0.10), transparent 30%),
 		radial-gradient(circle at top right, rgba(14, 165, 233, 0.08), transparent 24%),
-		linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+		linear-gradient(180deg, #ffffff 0%, var(--phishwise-background) 100%);
+	color: var(--phishwise-primary);
+}
+
+::selection {
+	background: rgba(37, 99, 235, 0.16);
+	color: var(--phishwise-primary);
 }
 
 .animate-fade-in {

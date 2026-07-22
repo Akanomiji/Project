@@ -19,7 +19,7 @@ from django.conf import settings
 warnings.filterwarnings("ignore", category=UserWarning)
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-ML_MODELS_DIR = Path(settings.BASE_DIR) / 'detector' / 'ml_models'
+ML_MODELS_DIR = Path(settings.BASE_DIR) / "detector" / "ml_models"
 
 vocab = {"<PAD>": 0, "<UNK>": 1}
 url_rf_model = None
@@ -34,18 +34,18 @@ def load_resources():
         return
 
     try:
-        with open(ML_MODELS_DIR / 'vocab_final.pkl', 'rb') as f:
+        with open(ML_MODELS_DIR / "vocab_final.pkl", "rb") as f:
             vocab = pickle.load(f)
-        with open(ML_MODELS_DIR / 'url_random_forest_model.pt', 'rb') as f:
+        with open(ML_MODELS_DIR / "url_random_forest_model.pt", "rb") as f:
             url_rf_model = pickle.load(f)
         bilstm_weights = torch.load(
-            ML_MODELS_DIR / 'advanced_model_bi_lstm.pt',
-            map_location=torch.device('cpu'),
+            ML_MODELS_DIR / "advanced_model_bi_lstm.pt",
+            map_location=torch.device("cpu"),
             weights_only=False,
         )
-        print('Models and resources loaded successfully.')
+        print("Models and resources loaded successfully.")
     except Exception as e:
-        print(f'Error loading resources: {e}')
+        print(f"Error loading resources: {e}")
         vocab = {"<PAD>": 0, "<UNK>": 1}
         url_rf_model = None
         bilstm_weights = None
@@ -74,6 +74,30 @@ class PhishingBiLSTM(nn.Module):
         lstm_out, (hidden, cell) = self.lstm(embedded)
         hidden_out = torch.cat((hidden[-2, :, :], hidden[-1, :, :]), dim=1)
         return self.fc(hidden_out)
+
+
+def resolve_final_url(initial_url: str):
+    """ฟังก์ชันตามหา URL ปลายทางจริงหากเป็น Dynamic QR หรือ Short URL"""
+    if not initial_url.startswith(("http://", "https://")):
+        initial_url = "http://" + initial_url
+
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/120.0.0.0 Safari/537.36"
+        )
+    }
+    try:
+        response = requests.get(
+            initial_url, allow_redirects=True, timeout=5, headers=headers, verify=False
+        )
+        final_url = response.url
+        has_redirected = len(response.history) > 0
+        return final_url, has_redirected
+    except Exception as e:
+        print(f"Error resolving final URL: {e}")
+        return initial_url, False
 
 
 def fetch_domain_age_days(url_str: str):
@@ -182,18 +206,21 @@ def process_html_content(url: str, max_len=500):
 def scan_url_logic(url: str):
     load_resources()
 
+    # 1. ตามหา URL ปลายทางจริงก่อนเสมอ
+    target_url, has_redirection = resolve_final_url(url)
+
     is_trusted = any(
-        d in url.lower()
+        d in target_url.lower()
         for d in ["google.com", "microsoft.com", "github.com", "facebook.com"]
     )
 
     is_in_blacklist_db = False
-    if "malicious-scam-test" in url.lower():
+    if "malicious-scam-test" in target_url.lower():
         is_in_blacklist_db = True
 
     if is_in_blacklist_db:
         return {
-            "url": url,
+            "url": target_url,
             "score": 0,
             "status": "danger",
             "ai_risk_score": 100,
@@ -204,12 +231,12 @@ def scan_url_logic(url: str):
             "is_blacklisted": True,
             "google_safe": False,
             "location": "Unknown",
-            "has_redirection": False,
+            "has_redirection": has_redirection,
         }
 
-    age_days, domain_age, domain_sub = fetch_domain_age_days(url)
-    has_ssl, ssl_title, ssl_sub = fetch_ssl_status(url)
-    location_name = fetch_ip_location(url)
+    age_days, domain_age, domain_sub = fetch_domain_age_days(target_url)
+    has_ssl, ssl_title, ssl_sub = fetch_ssl_status(target_url)
+    location_name = fetch_ip_location(target_url)
 
     rf_risk = 0.0
     bilstm_risk = 0.0
@@ -217,7 +244,7 @@ def scan_url_logic(url: str):
     if url_rf_model is not None and not is_trusted:
         try:
             df_features = pd.DataFrame(
-                extract_url_features(url),
+                extract_url_features(target_url),
                 columns=[
                     "url_length",
                     "is_ip_address",
@@ -236,7 +263,7 @@ def scan_url_logic(url: str):
         except Exception:
             pass
 
-    html_tensor = process_html_content(url)
+    html_tensor = process_html_content(target_url)
     if html_tensor is not None and bilstm_weights is not None and not is_trusted:
         try:
             model_instance = PhishingBiLSTM(
@@ -268,7 +295,7 @@ def scan_url_logic(url: str):
         if not has_ssl:
             accumulated_risk = min(100, accumulated_risk + 30)
 
-        if any(ext in url.lower() for ext in [".zip", ".exe", ".rar", ".scr"]):
+        if any(ext in target_url.lower() for ext in [".zip", ".exe", ".rar", ".scr"]):
             accumulated_risk = min(100, accumulated_risk + 20)
 
     final_risk_score = accumulated_risk
@@ -282,7 +309,7 @@ def scan_url_logic(url: str):
         status = "danger"
 
     return {
-        "url": url,
+        "url": target_url,
         "score": final_safe_score,
         "status": status,
         "ssl_title": ssl_title,
@@ -290,8 +317,10 @@ def scan_url_logic(url: str):
         "domain_age": domain_age,
         "domain_sub": domain_sub,
         "ai_risk_score": final_risk_score,
-        "is_blacklisted": (False if is_trusted else (True if status == "danger" else False)),
+        "is_blacklisted": (
+            False if is_trusted else (True if status == "danger" else False)
+        ),
         "google_safe": True if is_trusted else (False if status == "danger" else True),
         "location": location_name,
-        "has_redirection": False,
+        "has_redirection": has_redirection,
     }

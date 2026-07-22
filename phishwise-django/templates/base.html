@@ -5,15 +5,67 @@
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<title>{% block title %}Phishwise{% endblock %}</title>
-	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@3.4.17/dist/tailwind.min.css">
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Sarabun:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+	<script>
+		window.tailwind = window.tailwind || {};
+		window.tailwind.config = {
+			theme: {
+				extend: {
+					fontFamily: {
+						sans: ['Inter', 'Sarabun', 'sans-serif'],
+					},
+					colors: {
+						primary: '#0F172A',
+						secondary: '#1E40AF',
+						accent: '#7C3AED',
+						success: '#10B981',
+						danger: '#EF4444',
+						warning: '#F59E0B',
+						background: '#F8FAFC',
+						surface: '#FFFFFF',
+					},
+					animation: {
+						'fade-in': 'fadeIn 0.5s ease-out',
+						'fade-in-up': 'fadeInUp 0.5s ease-out',
+					},
+					keyframes: {
+						fadeIn: {
+							'0%': { opacity: '0' },
+							'100%': { opacity: '1' },
+						},
+						fadeInUp: {
+							'0%': { opacity: '0', transform: 'translateY(10px)' },
+							'100%': { opacity: '1', transform: 'translateY(0)' },
+						},
+					},
+				},
+			},
+		};
+	</script>
+	<script src="https://cdn.tailwindcss.com"></script>
 	<link rel="stylesheet" href="{% static 'css/app.css' %}">
 	{% block extra_head %}{% endblock %}
 </head>
-<body class="min-h-screen bg-slate-950 text-slate-100">
+<body class="flex min-h-screen flex-col bg-background text-primary font-sans antialiased">
 	{% if not hide_navbar %}
 		{% include 'partials/navbar.html' %}
 	{% endif %}
-	{% block content %}{% endblock %}
+	<div class="flex flex-1 flex-col">
+		<main class="flex-1">
+			{% block content %}{% endblock %}
+		</main>
+		<footer class="mt-auto border-t border-slate-200 bg-white/80 backdrop-blur">
+			<div class="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-6 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+				<div class="flex items-center gap-2 font-semibold text-slate-900">
+					<span class="text-2xl text-blue-600">🛡</span>
+					<span>PhishWise</span>
+				</div>
+				<p>AI-powered phishing detection and awareness platform.</p>
+			</div>
+		</footer>
+	</div>
 	<script src="{% static 'js/app.js' %}"></script>
 	{% block extra_js %}{% endblock %}
 </body>
