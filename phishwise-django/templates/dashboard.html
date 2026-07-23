@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% block title %}Dashboard | PhishWise{% endblock %}
+
 {% block extra_head %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 {% endblock %}
@@ -13,27 +14,45 @@
         </div>
     </div>
 
+    <!-- การ์ดแสดงผลสถิติจริงจาก Views -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200"><p class="text-slate-500 text-sm">สแกนทั้งหมด</p><h2 class="text-3xl font-bold">43</h2></div>
-        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200"><p class="text-slate-500 text-sm">ภัยคุกคามที่พบ</p><h2 class="text-3xl font-bold text-red-600">3</h2></div>
-        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200"><p class="text-slate-500 text-sm">Score ความปลอดภัย</p><h2 class="text-3xl font-bold text-green-600">92%</h2></div>
-        <a href="{% url 'history' %}" class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 block"><p class="text-slate-500 text-sm">การแจ้งเบาะแส</p><h2 class="text-3xl font-bold">2</h2></a>
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+            <p class="text-slate-500 text-sm font-medium">สแกนทั้งหมด</p>
+            <h2 class="text-3xl font-extrabold text-slate-800 mt-1">{{ total_scans|default:0 }}</h2>
+        </div>
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+            <p class="text-slate-500 text-sm font-medium">เว็บไซต์ปลอดภัย</p>
+            <h2 class="text-3xl font-extrabold text-emerald-600 mt-1">{{ safe_count|default:0 }}</h2>
+        </div>
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+            <p class="text-slate-500 text-sm font-medium">มีความเสี่ยงปานกลาง</p>
+            <h2 class="text-3xl font-extrabold text-amber-500 mt-1">{{ warning_count|default:0 }}</h2>
+        </div>
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+            <p class="text-slate-500 text-sm font-medium">พบภัยคุกคามอันตราย</p>
+            <h2 class="text-3xl font-extrabold text-rose-600 mt-1">{{ danger_count|default:0 }}</h2>
+        </div>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div class="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-            <div class="flex justify-between items-center mb-6"><h3 class="font-bold text-lg">สถิติการใช้งาน</h3></div>
-            <canvas id="memberChart" height="140"></canvas>
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="font-bold text-lg text-slate-800">สัดส่วนระดับความเสี่ยงที่ตรวจพบ</h3>
+            </div>
+            <div class="max-w-md mx-auto py-4">
+                <canvas id="memberChart" height="200"></canvas>
+            </div>
         </div>
         <div class="flex flex-col gap-6">
-            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 h-64">
-                <h3 class="font-bold text-lg mb-2">แหล่งภัยคุกคาม</h3>
-                <div id="memberMap" class="h-48 rounded-xl overflow-hidden"></div>
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 h-64 flex flex-col justify-between overflow-hidden">
+                <h3 class="font-bold text-lg mb-2 text-slate-800">แหล่งภัยคุกคาม</h3>
+                <!-- เพิ่ม relative z-0 และ style="isolation: isolate;" เพื่อบล็อกการทะลุขึ้นไปทับ Navbar -->
+                <div id="memberMap" class="h-44 rounded-xl overflow-hidden relative z-0" style="isolation: isolate;"></div>
             </div>
             <div class="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-2xl p-6 text-white shadow-lg">
-                <div class="text-xs font-bold opacity-80">Tip</div>
-                <h4 class="font-bold text-lg mt-3">ระวัง! QR Code ปลอม</h4>
-                <p class="text-indigo-100 text-sm mt-2">ตรวจสอบชื่อปลายทางก่อนโอนเงินเสมอ</p>
+                <div class="text-xs font-bold uppercase tracking-wider opacity-80">Security Tip</div>
+                <h4 class="font-bold text-lg mt-2">ระวัง! QR Code ปลอม</h4>
+                <p class="text-indigo-100 text-sm mt-1">สแกนตรวจสอบลิงก์สั้นหรือ QR Code ทุกครั้งก่อนยินยอมดาวน์โหลดไฟล์หรือโอนเงิน</p>
             </div>
         </div>
     </div>
@@ -46,19 +65,26 @@
 <script>
 const memberCtx = document.getElementById('memberChart');
 new Chart(memberCtx, {
-    type: 'line',
+    type: 'doughnut',
     data: {
-        labels: ['จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.', 'อา.'],
-        datasets: [
-            { label: 'ปลอดภัย', data: [5,8,4,10,6,3,7], borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,.15)', fill: true, tension: .4 },
-            { label: 'อันตราย', data: [0,1,0,0,2,0,0], borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,.12)', fill: true, tension: .4 },
-        ]
+        labels: ['ปลอดภัย', 'มีความเสี่ยง', 'อันตราย'],
+        datasets: [{
+            data: [{{ safe_count|default:0 }}, {{ warning_count|default:0 }}, {{ danger_count|default:0 }}],
+            backgroundColor: ['#10b981', '#f59e0b', '#e11d48'],
+            borderWidth: 2,
+            borderColor: '#ffffff'
+        }]
     },
-    options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+    options: {
+        responsive: true,
+        plugins: {
+            legend: { position: 'bottom' }
+        }
+    }
 });
 
 const memberMap = L.map('memberMap', { zoomControl: false }).setView([13.7563, 100.5018], 2);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap contributors' }).addTo(memberMap);
-L.marker([13.7563, 100.5018]).addTo(memberMap).bindPopup('Bangkok');
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap' }).addTo(memberMap);
+L.marker([13.7563, 100.5018]).addTo(memberMap).bindPopup('Bangkok, Thailand');
 </script>
 {% endblock %}

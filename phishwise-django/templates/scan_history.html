@@ -5,7 +5,7 @@
 <main class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-12">
     <div class="mb-8 border-b border-slate-200 pb-4">
         <h1 class="text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-3">ประวัติการสแกนลิงก์</h1>
-        <p class="text-slate-500 mt-2">รายการ URL ที่คุณเคยตรวจสอบความปลอดภัยย้อนหลัง</p>
+        <p class="text-slate-500 mt-2">รายการ URL ที่คุณเคยตรวจสอบความปลอดภัยย้อนหลังผ่านระบบ</p>
     </div>
 
     <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
@@ -14,20 +14,36 @@
                 {% for item in scan_data %}
                     <div class="p-5 hover:bg-slate-50 transition flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
                         <div class="flex items-start gap-4 overflow-hidden flex-1">
-                            <div class="mt-1 p-2 rounded-full {% if item.score >= 75 %}bg-green-100 text-green-700{% else %}bg-red-100 text-red-700{% endif %}">
-                                {% if item.score >= 75 %}✓{% else %}!{% endif %}
+                            <div class="mt-1 p-2 rounded-full font-bold text-sm w-8 h-8 flex items-center justify-center shrink-0
+                                {% if item.score >= 70 %}bg-emerald-100 text-emerald-700
+                                {% elif item.score >= 50 %}bg-amber-100 text-amber-700
+                                {% else %}bg-rose-100 text-rose-700{% endif %}">
+                                {% if item.score >= 70 %}✓{% elif item.score >= 50 %}!{% else %}✕{% endif %}
                             </div>
                             <div class="min-w-0 flex-1">
-                                <p class="text-slate-900 font-bold truncate text-lg">{{ item.url }}</p>
-                                <p class="text-xs text-slate-500">{{ item.timestamp|date:'d M Y, H:i' }} · Score: <span class="font-bold {% if item.score >= 75 %}text-green-600{% else %}text-red-500{% endif %}">{{ item.score }}/100</span></p>
+                                <p class="text-slate-900 font-bold truncate text-base font-mono">{{ item.url }}</p>
+                                <p class="text-xs text-slate-500 mt-1">
+                                    {{ item.timestamp|date:'d M Y, H:i' }} · คะแนนความปลอดภัย: 
+                                    <span class="font-bold 
+                                        {% if item.score >= 70 %}text-emerald-600
+                                        {% elif item.score >= 50 %}text-amber-500
+                                        {% else %}text-rose-600{% endif %}">
+                                        {{ item.score }}/100
+                                    </span>
+                                </p>
                             </div>
                         </div>
-                        <div class="px-3 py-1 rounded-full text-xs font-bold {% if item.score >= 75 %}bg-green-100 text-green-700{% else %}bg-red-100 text-red-700{% endif %}">{{ item.status }}</div>
+                        <div class="px-3 py-1 rounded-full text-xs font-bold border shrink-0
+                            {% if item.score >= 70 %}bg-emerald-50 text-emerald-700 border-emerald-200
+                            {% elif item.score >= 50 %}bg-amber-50 text-amber-700 border-amber-200
+                            {% else %}bg-rose-50 text-rose-700 border-rose-200{% endif %}">
+                            {{ item.status }}
+                        </div>
                     </div>
                 {% endfor %}
             </div>
         {% else %}
-            <div class="py-20 text-center text-slate-400">ยังไม่มีประวัติการสแกน</div>
+            <div class="py-20 text-center text-slate-400">ยังไม่มีประวัติการสแกนในระบบ</div>
         {% endif %}
     </div>
 </main>

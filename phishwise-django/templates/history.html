@@ -5,20 +5,40 @@
 <main class="max-w-5xl mx-auto px-4 py-8 pb-12">
     <div class="mb-8">
         <h1 class="text-3xl font-extrabold text-slate-800">ประวัติการแจ้งเบาะแส</h1>
-        <p class="text-slate-500">ติดตามสถานะเว็บไซต์ที่คุณเคยแจ้งเข้ามา</p>
+        <p class="text-slate-500">ติดตามสถานะเว็บไซต์ที่คุณเคยแจ้งเข้ามาในระบบ</p>
     </div>
     <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse">
-                <thead class="bg-slate-100 text-slate-500 text-xs uppercase font-bold"><tr><th class="p-4 w-16 text-center">#</th><th class="p-4">URL / เว็บไซต์</th><th class="p-4">ประเภทภัยคุกคาม</th><th class="p-4">วันที่แจ้ง</th><th class="p-4 text-center">สถานะ</th></tr></thead>
+                <thead class="bg-slate-100 text-slate-500 text-xs uppercase font-bold">
+                    <tr>
+                        <th class="p-4 w-16 text-center">#</th>
+                        <th class="p-4">URL / เว็บไซต์</th>
+                        <th class="p-4">ประเภทภัยคุกคาม</th>
+                        <th class="p-4">วันที่แจ้ง</th>
+                        <th class="p-4 text-center">สถานะการตรวจสอบ</th>
+                    </tr>
+                </thead>
                 <tbody class="divide-y divide-slate-100 text-sm">
                     {% for report in my_reports %}
-                        <tr class="hover:bg-slate-50">
-                            <td class="p-4 text-center text-slate-400">{{ report.id }}</td>
+                        <tr class="hover:bg-slate-50 transition">
+                            <td class="p-4 text-center text-slate-400 font-bold">{{ report.id }}</td>
                             <td class="p-4 font-medium text-slate-800 font-mono text-xs md:text-sm truncate max-w-[200px] md:max-w-xs">{{ report.url }}</td>
-                            <td class="p-4"><span class="bg-slate-100 text-slate-600 px-2 py-1 rounded text-xs font-bold border border-slate-200">{{ report.type }}</span></td>
+                            <td class="p-4"><span class="bg-slate-100 text-slate-600 px-2.5 py-1 rounded-md text-xs font-bold border border-slate-200">{{ report.type }}</span></td>
                             <td class="p-4 text-slate-500">{{ report.date }}</td>
-                            <td class="p-4 text-center">{{ report.status }}</td>
+                            <td class="p-4 text-center">
+                                {% if report.status == 'Verified' %}
+                                    <span class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700 border border-emerald-200">ยืนยันแล้ว</span>
+                                {% elif report.status == 'Pending' %}
+                                    <span class="px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-700 border border-amber-200">กำลังตรวจสอบ</span>
+                                {% else %}
+                                    <span class="px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-700 border border-rose-200">ปฏิเสธ</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="5" class="p-8 text-center text-slate-400">ยังไม่มีรายการแจ้งเบาะแส</td>
                         </tr>
                     {% endfor %}
                 </tbody>
